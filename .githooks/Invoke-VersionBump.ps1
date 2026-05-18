@@ -5,16 +5,26 @@
     Increments the build (patch) version in DataForNerdsCollectors.psd1.
 
 .DESCRIPTION
-    Called by the pre-commit git hook. Reads the current ModuleVersion,
-    increments the patch number (1.0.x -> 1.0.x+1), writes the file back,
+    Called by the pre-commit git hook. Only fires when staged changes include
+    files inside Modules/DataForNerdsCollectors/ (excluding the manifest itself).
+    Increments the patch number (1.0.x -> 1.0.x+1), writes the file back,
     and stages it so the version change is included in the commit.
 
     Minor version (1.x.0) should be incremented manually when merging to main,
     then reset patch to 0.
 #>
 
-$repoRoot = & git rev-parse --show-toplevel
-$psd1     = Join-Path $repoRoot 'Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+$repoRoot   = & git rev-parse --show-toplevel
+$moduleDir  = 'Modules/DataForNerdsCollectors/'
+$psd1       = Join-Path $repoRoot 'Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+$psd1Rel    = 'Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+
+# Only bump when staged files include module source (not just the manifest itself)
+$stagedFiles = & git diff --cached --name-only
+$moduleChanged = $stagedFiles | Where-Object { $_ -like "$moduleDir*" -and $_ -ne $psd1Rel }
+if (-not $moduleChanged) {
+    exit 0
+}
 
 if (-not (Test-Path $psd1)) {
     Write-Host "Version bump: manifest not found at $psd1 — skipping"
