@@ -87,7 +87,7 @@ function Get-WindowsUpdateHistory {
     # --- Fetch Windows 10 updates if requested ---
     if (10 -in $versionsToQuery) {
         Write-Verbose "Fetching Windows 10 update history"
-        $win10Response = Invoke-UpdateHistoryPage -Uri $script:Win10UpdateHistoryUrl -ErrorAction SilentlyContinue
+        $win10Response = Invoke-ModuleWebRequest -Uri $script:Win10UpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($win10Response) {
             Write-Verbose "Windows 10 page size: $($win10Response.Content.Length) bytes"
             $win10Results = ConvertTo-Win10UpdateEntries -Html $win10Response.Content `
@@ -102,7 +102,7 @@ function Get-WindowsUpdateHistory {
     # --- Fetch Windows 11 updates if requested ---
     if (11 -in $versionsToQuery) {
         Write-Verbose "Fetching Windows 11 update history"
-        $win11Response = Invoke-UpdateHistoryPage -Uri $script:Win11UpdateHistoryUrl -ErrorAction SilentlyContinue
+        $win11Response = Invoke-ModuleWebRequest -Uri $script:Win11UpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($win11Response) {
             Write-Verbose "Windows 11 page landed on: $($win11Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri)"
             Write-Verbose "Windows 11 page size: $($win11Response.Content.Length) bytes"
@@ -116,7 +116,7 @@ function Get-WindowsUpdateHistory {
             # --- Optionally fetch and merge Windows 11 hotpatch entries ---
             if ($IncludeHotpatch) {
                 Write-Verbose "Fetching Windows 11 hotpatch history"
-                $hotpatchResponse = Invoke-UpdateHistoryPage -Uri $script:Win11HotpatchHistoryUrl -ErrorAction SilentlyContinue
+                $hotpatchResponse = Invoke-ModuleWebRequest -Uri $script:Win11HotpatchHistoryUrl -ErrorAction SilentlyContinue
                 if ($hotpatchResponse) {
                     Write-Verbose "Hotpatch page size: $($hotpatchResponse.Content.Length) bytes"
                     $hotpatchResults = ConvertTo-Win11HotpatchEntries -Html $hotpatchResponse.Content `
