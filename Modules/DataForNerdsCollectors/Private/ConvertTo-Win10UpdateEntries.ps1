@@ -97,6 +97,7 @@ function ConvertTo-Win10UpdateEntries {
 
         foreach ($build in $osBuilds) {
             $results.Add([PSCustomObject]@{
+                OSType         = 'Client'
                 MajorVersion   = 10
                 WindowsVersion = $currentVersion
                 KBNumber       = $kbNumber

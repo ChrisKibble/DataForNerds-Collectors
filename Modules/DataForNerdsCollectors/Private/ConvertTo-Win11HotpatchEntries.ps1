@@ -93,6 +93,7 @@ function ConvertTo-Win11HotpatchEntries {
 
         foreach ($build in $osBuilds) {
             $results.Add([PSCustomObject]@{
+                OSType         = 'Client'
                 MajorVersion   = 11
                 WindowsVersion = $currentVersion
                 KBNumber       = $entryMatch.Groups['kb'].Value
