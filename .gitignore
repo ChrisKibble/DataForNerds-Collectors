@@ -1,0 +1,96 @@
+# PowerShell
+*.ps1xml
+*.psd1xml
+$PROFILE
+$PSHOME
+.vscode-insiders/
+
+# PowerShell output
+*.log
+*.xml
+*.csv
+*.json.bak
+
+# Build artifacts
+bin/
+obj/
+*.nupkg
+*.psm1.bak
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-*
+*.user
+*.suo
+*.vcxproj.user
+
+# OS-specific files
+Thumbs.db
+.DS_Store
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary and cache files
+*.tmp
+*.temp
+.cache/
+node_modules/
+__pycache__/
+*.pyc
+
+# Secrets and credentials (IMPORTANT)
+*.key
+*.pem
+*.pfx
+*.p12
+secrets.json
+credentials.json
+.env
+.env.local
+.env.*.local
+appsettings.json
+appsettings.*.json
+config.local.json
+
+# Local environment overrides
+settings.local.json
+local.settings.json
+
+# Downloaded data and outputs (if storing scraped data)
+output/
+data/
+downloads/
+results/
+*.xlsx
+*.xls
+
+# Development/testing
+test-results/
+coverage/
+.nyc_output/
+
+# Windows-specific
+*.exe
+*.dll
+*.lib
+
+# Backup files
+*.bak
+*.backup
+*.orig
+~*
+
+# Lock files for dependencies (if applicable)
+# package-lock.json
+# Pipfile.lock
+
+# Claude Code specific
+.claude/settings.json
+.claude/keybindings.json
+# Note: .claude/settings.local.json is already in .gitignore patterns above as settings.local.json
