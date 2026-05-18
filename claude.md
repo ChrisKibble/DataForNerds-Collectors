@@ -8,15 +8,26 @@ A PowerShell 7.5+ module that scrapes data from public sources and provides norm
 
 **Module**: `DataForNerdsCollectors` in `Modules/DataForNerdsCollectors/`
 
-**Current Collector**: Windows Update History
-- `Get-WindowsUpdateHistory`: Scrapes Windows 10 and Windows 11 client OS update pages from Microsoft
-- Supports `-MajorVersion`, `-WindowsVersion`, `-IncludePreview`, `-IncludeHotpatch` filters
-- Output: 9 fields including `OSType` (always 'Client' for now)
+**Current Collectors**:
+
+1. **Windows Update History** (`Get-WindowsUpdateHistory`)
+   - Scrapes Windows 10 and Windows 11 client OS update pages from Microsoft
+   - Supports `-MajorVersion`, `-WindowsVersion`, `-IncludePreview`, `-IncludeHotpatch` filters
+   - Output: 9 fields (OSType, MajorVersion, WindowsVersion, KBNumber, OSBuild, FullVersion, ReleaseDate, ReleaseType, ArticleUrl)
+
+2. **Office Language Codes** (`Get-LanguageCodes`)
+   - Scrapes Office language codes table from MS-OE376 specification (Microsoft Learn)
+   - Returns 223 language code entries with LCID mappings to BCP 47 codes
+   - Output: 3 fields (LanguageCode, Description, BCP47)
 
 **Architecture**:
 - `.psm1` loader: Constants (URLs, headers) + recursive dot-sourcing of `Public/*.ps1` and `Private/**/*.ps1`
-- `Public/`: Exported functions (one file per function)
-- `Private/`: Internal helpers (no folder structure yet, but will have subfolders like `Private/WindowsClient/` when server support added)
+- `Public/`: Exported functions (one file per function: `Get-WindowsUpdateHistory.ps1`, `Get-LanguageCodes.ps1`)
+- `Private/`: Internal helpers
+  - `Invoke-ModuleWebRequest.ps1`: Reusable web request helper (fetches with standard headers, error handling)
+  - Parser functions: `ConvertTo-Win10UpdateEntries.ps1`, `ConvertTo-Win11UpdateEntries.ps1`, `ConvertTo-Win11HotpatchEntries.ps1`, `ConvertTo-LanguageCodeEntries.ps1`
+  - Utility functions: `Resolve-ArticleUrl.ps1`
+  - Subfolders (e.g., `Private/WindowsServer/`) reserved for future multi-OS support
 - Pre-commit hook at `.githooks/`: Auto-increments build (patch) version when module files change
 
 **Versioning** (1.x.y):
@@ -24,11 +35,18 @@ A PowerShell 7.5+ module that scrapes data from public sources and provides norm
 - Minor: Incremented manually when merging to main (reset patch to 0)
 - Patch/Build: Auto-incremented by pre-commit hook on any staged module changes
 
-**Output Schema** (9 fields):
-```
-OSType, MajorVersion, WindowsVersion, KBNumber, OSBuild, FullVersion, ReleaseDate, ReleaseType, ArticleUrl
-```
-OSType is 'Client' now; will be 'Server' for future server OS collectors.
+**Output Schemas**:
+- **Windows Update History** (9 fields):
+  ```
+  OSType, MajorVersion, WindowsVersion, KBNumber, OSBuild, FullVersion, ReleaseDate, ReleaseType, ArticleUrl
+  ```
+  OSType is always 'Client'; will distinguish from 'Server' when server OS collectors added.
+
+- **Office Language Codes** (3 fields):
+  ```
+  LanguageCode, Description, BCP47
+  ```
+  LanguageCode is the LCID (e.g., '1033'), Description is human-readable (e.g., 'English - United States'), BCP47 is the standard code (e.g., 'en-US').
 
 ## Key Guidelines
 
@@ -38,6 +56,7 @@ OSType is 'Client' now; will be 'Server' for future server OS collectors.
 - Output must be JSON-serializable
 - Code: well-documented, easy to understand, not obfuscated
 - Cite original sources when code from other projects is used
+- When running pwsh.exe for testing, use the -NoProfile parameter
 
 ## Future Expansion
 
@@ -46,9 +65,12 @@ Module is intentionally named broad (DataForNerdsCollectors, not WindowsUpdateCo
 - Other IT data collectors (DNS, patching timelines, etc.)
 
 When adding new collectors:
-1. Create new Public function file
-2. Create new Private subfolder (e.g., `Private/WindowsServer/`) for OS-specific parsers
-3. Ensure output includes appropriate `OSType` field for filtering
+1. Create new Public function file (e.g., `Public/Get-SomethingNew.ps1`)
+2. Create corresponding Private parser function (e.g., `Private/ConvertTo-SomethingNewEntries.ps1`)
+3. Use `Invoke-ModuleWebRequest` for all web requests to maintain consistent headers and error handling
+4. Create new Private subfolder (e.g., `Private/WindowsServer/`) only if collector needs OS-specific parsers
+5. Define return schema with clear field names; add `OSType` field if distinguishing from other collectors
+6. Export new function in `.psm1` and update `.psd1` manifest
 
 ## Git Setup
 
