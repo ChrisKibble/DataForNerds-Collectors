@@ -58,9 +58,11 @@ function Get-WindowsUpdateHistory {
 
     .OUTPUTS
         PSCustomObject[]
-        Each object has: MajorVersion (Int), WindowsVersion (String), KBNumber (String),
-        OSBuild (String), FullVersion (String), ReleaseDate (String), ReleaseType (String),
-        ArticleUrl (String).
+        Each object has: OSType (String), MajorVersion (Int), WindowsVersion (String),
+        KBNumber (String), OSBuild (String), FullVersion (String), ReleaseDate (String),
+        ReleaseType (String), ArticleUrl (String).
+        OSType is always 'Client' for this function; use it to distinguish from server
+        OS entries when combining output from multiple collectors.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
