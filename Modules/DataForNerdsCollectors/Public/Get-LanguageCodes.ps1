@@ -38,7 +38,7 @@ function Get-LanguageCodes {
     param ()
 
     Write-Verbose "Fetching language codes from Microsoft Learn"
-    $response = Invoke-UpdateHistoryPage -Uri $script:LanguageCodesUrl -ErrorAction SilentlyContinue
+    $response = Invoke-ModuleWebRequest -Uri $script:LanguageCodesUrl -ErrorAction SilentlyContinue
 
     if (-not $response) {
         Write-Warning 'Failed to fetch language codes page.'

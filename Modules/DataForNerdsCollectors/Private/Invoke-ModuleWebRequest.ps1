@@ -1,4 +1,4 @@
-function Invoke-UpdateHistoryPage {
+function Invoke-ModuleWebRequest {
     <#
     .SYNOPSIS
         Fetches a web page with standard headers and error handling.
@@ -18,7 +18,7 @@ function Invoke-UpdateHistoryPage {
         return $response
     }
     catch {
-        Write-Error "Failed to fetch update history page: $_"
+        Write-Error "Failed to fetch web page: $_"
         return $null
     }
 }
