@@ -17,6 +17,9 @@ $script:Win11UpdateHistoryUrl = 'https://aka.ms/Windows11UpdateHistory'
 # Windows Server sections are detected and skipped automatically
 $script:Win11HotpatchHistoryUrl = 'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
 
+# Office language codes and BCP 47 mappings (MS-OE376 specification)
+$script:LanguageCodesUrl = 'https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
+
 # Headers that prevent Microsoft's CDN from returning a captcha or reduced-content page
 $script:DefaultHeaders = @{
     'User-Agent'      = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
@@ -44,4 +47,4 @@ Get-ChildItem -Path "$PSScriptRoot\Public\*.ps1" -ErrorAction SilentlyContinue |
 # Export public functions
 # ---------------------------------------------------------------------------
 
-Export-ModuleMember -Function 'Get-WindowsUpdateHistory'
+Export-ModuleMember -Function 'Get-WindowsUpdateHistory', 'Get-LanguageCodes'
