@@ -1,0 +1,6 @@
+#!/bin/sh
+# Increments the build (patch) version in the module manifest before each commit.
+# Requires PowerShell 7.5+ (pwsh) to be on PATH.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+pwsh -NoProfile -NonInteractive -File "$REPO_ROOT/.githooks/Invoke-VersionBump.ps1"
+exit $?
