@@ -2,7 +2,7 @@
 
 ## Project: DataForNerdsCollectors
 
-A PowerShell 7.5+ module that scrapes data from public sources and provides normalized, JSON-ready output for IT professionals. Designed to be portable and run on both Windows and Linux.
+A PowerShell 7.4+ module that scrapes data from public sources and provides normalized, JSON-ready output for IT professionals. Designed to be portable and run on both Windows and Linux.
 
 ## Current State (v1.0.1)
 
@@ -63,7 +63,7 @@ A PowerShell 7.5+ module that scrapes data from public sources and provides norm
 ## Key Guidelines
 
 - Do not automatically stage new code in git
-- PowerShell v7.5.5+ required (but never a newer major version)
+- PowerShell v7.4+ required (but never a newer major version)
 - Cross-platform (Windows and Linux)
 - Output must be JSON-serializable
 - Code: well-documented, easy to understand, not obfuscated
