@@ -5,7 +5,8 @@ function Get-WindowsUpdateHistory {
 
     .DESCRIPTION
         Fetches the Windows 10 and Windows 11 update history pages and parses the left-side
-        navigation menus. Returns structured objects for each update with:
+        navigation menus. Returns every discovered update — Standard, Preview, Out-of-band,
+        Hotpatch, and Hotpatch-OOB — with the following fields:
 
             MajorVersion   - 10 or 11
             WindowsVersion - e.g. '22H2' (Win10), '24H2' (Win11), 'RTM' (Win10 initial)
@@ -26,35 +27,20 @@ function Get-WindowsUpdateHistory {
         Filters results to a single version label, e.g. '22H2' (Win10) or '24H2' (Win11).
         When omitted, updates for all discovered versions are returned.
 
-    .PARAMETER IncludePreview
-        When specified, Preview and Out-of-band releases are included in results.
-        By default only standard (Patch Tuesday) releases are returned.
-
-    .PARAMETER IncludeHotpatch
-        When specified, hotpatch releases (Windows 11 only) are fetched from the Windows 11
-        Hotpatch release notes page and merged into the output. Standard hotpatches are always
-        included; out-of-band hotpatches additionally require -IncludePreview.
-        Has no effect when -MajorVersion is limited to 10 only.
-
     .EXAMPLE
         Get-WindowsUpdateHistory | ConvertTo-Json -Depth 3
 
-        Returns all current standard updates (both Win10 and Win11) as a JSON array.
+        Returns every update (Win10 + Win11, all release types, plus Win11 hotpatches) as JSON.
 
     .EXAMPLE
         Get-WindowsUpdateHistory -MajorVersion 11 -WindowsVersion '24H2' | ConvertTo-Json -Depth 3
 
-        Returns only Windows 11 24H2 standard updates as JSON.
+        Returns all Windows 11 24H2 updates as JSON.
 
     .EXAMPLE
-        Get-WindowsUpdateHistory -IncludePreview | Where-Object ReleaseType -eq 'Preview'
+        Get-WindowsUpdateHistory | Where-Object ReleaseType -eq 'Preview'
 
         Returns only Preview releases across all versions.
-
-    .EXAMPLE
-        Get-WindowsUpdateHistory -MajorVersion 11 -IncludeHotpatch | ConvertTo-Json -Depth 3
-
-        Returns standard cumulative updates and hotpatches for Windows 11.
 
     .OUTPUTS
         PSCustomObject[]
@@ -72,13 +58,7 @@ function Get-WindowsUpdateHistory {
         [int[]]$MajorVersion,
 
         [Parameter(HelpMessage = "Filter to a specific version label, e.g. '22H2' (Win10) or '24H2' (Win11)")]
-        [string]$WindowsVersion,
-
-        [Parameter(HelpMessage = 'Include Preview and Out-of-band releases (excluded by default)')]
-        [switch]$IncludePreview,
-
-        [Parameter(HelpMessage = 'Include hotpatch releases from the Windows 11 Hotpatch release notes page')]
-        [switch]$IncludeHotpatch
+        [string]$WindowsVersion
     )
 
     $versionsToQuery = if ($MajorVersion) { $MajorVersion | Select-Object -Unique } else { @(10, 11) }
@@ -91,8 +71,7 @@ function Get-WindowsUpdateHistory {
         if ($win10Response) {
             Write-Verbose "Windows 10 page size: $($win10Response.Content.Length) bytes"
             $win10Results = ConvertTo-Win10UpdateEntries -Html $win10Response.Content `
-                                                        -WindowsVersion $WindowsVersion `
-                                                        -IncludePreview:$IncludePreview
+                                                        -WindowsVersion $WindowsVersion
             foreach ($result in $win10Results) {
                 $allResults.Add($result)
             }
@@ -107,33 +86,24 @@ function Get-WindowsUpdateHistory {
             Write-Verbose "Windows 11 page landed on: $($win11Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri)"
             Write-Verbose "Windows 11 page size: $($win11Response.Content.Length) bytes"
             $win11Results = ConvertTo-Win11UpdateEntries -Html $win11Response.Content `
-                                                        -WindowsVersion $WindowsVersion `
-                                                        -IncludePreview:$IncludePreview
+                                                        -WindowsVersion $WindowsVersion
             foreach ($result in $win11Results) {
                 $allResults.Add($result)
             }
 
-            # --- Optionally fetch and merge Windows 11 hotpatch entries ---
-            if ($IncludeHotpatch) {
-                Write-Verbose "Fetching Windows 11 hotpatch history"
-                $hotpatchResponse = Invoke-ModuleWebRequest -Uri $script:Win11HotpatchHistoryUrl -ErrorAction SilentlyContinue
-                if ($hotpatchResponse) {
-                    Write-Verbose "Hotpatch page size: $($hotpatchResponse.Content.Length) bytes"
-                    $hotpatchResults = ConvertTo-Win11HotpatchEntries -Html $hotpatchResponse.Content `
-                                                                      -WindowsVersion $WindowsVersion `
-                                                                      -IncludePreview:$IncludePreview
-                    foreach ($result in $hotpatchResults) {
-                        $allResults.Add($result)
-                    }
-                    Write-Verbose "Hotpatch entries found: $($hotpatchResults.Count)"
+            # --- Fetch and merge Windows 11 hotpatch entries ---
+            Write-Verbose "Fetching Windows 11 hotpatch history"
+            $hotpatchResponse = Invoke-ModuleWebRequest -Uri $script:Win11HotpatchHistoryUrl -ErrorAction SilentlyContinue
+            if ($hotpatchResponse) {
+                Write-Verbose "Hotpatch page size: $($hotpatchResponse.Content.Length) bytes"
+                $hotpatchResults = ConvertTo-Win11HotpatchEntries -Html $hotpatchResponse.Content `
+                                                                  -WindowsVersion $WindowsVersion
+                foreach ($result in $hotpatchResults) {
+                    $allResults.Add($result)
                 }
+                Write-Verbose "Hotpatch entries found: $($hotpatchResults.Count)"
             }
         }
-    }
-
-    # --- Warn if -IncludeHotpatch was used but only Win10 was queried ---
-    if (10 -notin $versionsToQuery -and $IncludeHotpatch) {
-        Write-Verbose '-IncludeHotpatch is only applicable to Windows 11 results; no hotpatch data exists for Windows 10.'
     }
 
     if ($allResults.Count -eq 0) {

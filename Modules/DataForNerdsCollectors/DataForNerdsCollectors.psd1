@@ -4,7 +4,7 @@
 
 @{
     RootModule        = 'DataForNerdsCollectors.psm1'
-    ModuleVersion     = '1.0.5'
+    ModuleVersion     = '1.0.6'
     GUID              = 'a9c3f5e7-2d6b-4a8f-c1e9-7f3b5d8a1c6e'
 
     Author            = 'Data For Nerds'

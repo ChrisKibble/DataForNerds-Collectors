@@ -13,10 +13,7 @@ function ConvertTo-Win11UpdateEntries {
         [string]$Html,
 
         [Parameter()]
-        [string]$WindowsVersion,
-
-        [Parameter()]
-        [switch]$IncludePreview
+        [string]$WindowsVersion
     )
 
     $results        = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -68,9 +65,6 @@ function ConvertTo-Win11UpdateEntries {
         else {
             'Standard'
         }
-
-        # Apply preview/OOB filter
-        if (-not $IncludePreview -and $releaseType -ne 'Standard') { continue }
 
         # Deduplicate
         $dedupeKey = "$currentVersion|$($entryMatch.Groups['kb'].Value)"
