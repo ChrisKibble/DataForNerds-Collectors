@@ -20,12 +20,18 @@ A PowerShell 7.5+ module that scrapes data from public sources and provides norm
    - Returns 223 language code entries with LCID mappings to BCP 47 codes
    - Output: 3 fields (LanguageCode, Description, BCP47)
 
+3. **Microsoft 365 Apps Update History** (`Get-Microsoft365AppsUpdateHistory`)
+   - Scrapes the "Update history for Microsoft 365 Apps (listed by date)" page (Microsoft Learn)
+   - Channel columns are read dynamically from table headers (no hard-coded positions)
+   - Cells with multiple `Version NNNN (Build NNNNN.NNNNN)` entries are exploded into one record each
+   - Output: 4 fields (ReleaseDate, ChannelName, Version, Build)
+
 **Architecture**:
 - `.psm1` loader: Constants (URLs, headers) + recursive dot-sourcing of `Public/*.ps1` and `Private/**/*.ps1`
-- `Public/`: Exported functions (one file per function: `Get-WindowsUpdateHistory.ps1`, `Get-LanguageCodes.ps1`)
+- `Public/`: Exported functions (one file per function: `Get-WindowsUpdateHistory.ps1`, `Get-LanguageCodes.ps1`, `Get-Microsoft365AppsUpdateHistory.ps1`)
 - `Private/`: Internal helpers
   - `Invoke-ModuleWebRequest.ps1`: Reusable web request helper (fetches with standard headers, error handling)
-  - Parser functions: `ConvertTo-Win10UpdateEntries.ps1`, `ConvertTo-Win11UpdateEntries.ps1`, `ConvertTo-Win11HotpatchEntries.ps1`, `ConvertTo-LanguageCodeEntries.ps1`
+  - Parser functions: `ConvertTo-Win10UpdateEntries.ps1`, `ConvertTo-Win11UpdateEntries.ps1`, `ConvertTo-Win11HotpatchEntries.ps1`, `ConvertTo-LanguageCodeEntries.ps1`, `ConvertTo-Microsoft365AppsUpdateEntries.ps1`
   - Utility functions: `Resolve-ArticleUrl.ps1`
   - Subfolders (e.g., `Private/WindowsServer/`) reserved for future multi-OS support
 - Pre-commit hook at `.githooks/`: Auto-increments build (patch) version when module files change
@@ -47,6 +53,12 @@ A PowerShell 7.5+ module that scrapes data from public sources and provides norm
   LanguageCode, Description, BCP47
   ```
   LanguageCode is the LCID (e.g., '1033'), Description is human-readable (e.g., 'English - United States'), BCP47 is the standard code (e.g., 'en-US').
+
+- **Microsoft 365 Apps Update History** (4 fields):
+  ```
+  ReleaseDate, ChannelName, Version, Build
+  ```
+  ReleaseDate is ISO yyyy-MM-dd (Year column + Release Date column combined), ChannelName is the full channel name from the table header (e.g., 'Current Channel', 'Monthly Enterprise Channel'), Version is e.g. '2604', Build is e.g. '19929.20172'.
 
 ## Key Guidelines
 
