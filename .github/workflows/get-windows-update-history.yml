@@ -1,0 +1,36 @@
+name: Get-WindowsUpdateHistory
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-collector:
+    name: Run Get-WindowsUpdateHistory
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PowerShell 7.5+
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Install latest stable PowerShell from Microsoft's official script.
+          # Pinned to >= 7.5 via the module manifest's PowerShellVersion requirement.
+          wget -q https://aka.ms/install-powershell.sh -O /tmp/install-powershell.sh
+          sudo bash /tmp/install-powershell.sh
+          pwsh --version
+
+      - name: Run Get-WindowsUpdateHistory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
+
+          $results = Get-WindowsUpdateHistory
+
+          Write-Host "Returned $($results.Count) update record(s)."
+          $results | Format-Table -AutoSize | Out-String -Width 4096 | Write-Host
+          $results | ConvertTo-Json -Depth 5 | Write-Host
