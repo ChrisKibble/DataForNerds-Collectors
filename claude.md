@@ -12,7 +12,7 @@ A PowerShell 7.4+ module that scrapes data from public sources and provides norm
 
 1. **Windows Update History** (`Get-WindowsUpdateHistory`)
    - Scrapes Windows 10 and Windows 11 client OS update pages from Microsoft
-   - Supports `-MajorVersion`, `-WindowsVersion`, `-IncludePreview`, `-IncludeHotpatch` filters
+   - Supports `-MajorVersion` and `-WindowsVersion` filters; always returns all release types (Standard, Preview, Out-of-band, Hotpatch, Hotpatch-OOB)
    - Output: 9 fields (OSType, MajorVersion, WindowsVersion, KBNumber, OSBuild, FullVersion, ReleaseDate, ReleaseType, ArticleUrl)
 
 2. **Office Language Codes** (`Get-LanguageCodes`)

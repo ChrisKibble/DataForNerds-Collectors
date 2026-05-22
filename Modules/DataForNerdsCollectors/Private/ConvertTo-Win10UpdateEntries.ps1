@@ -14,10 +14,7 @@ function ConvertTo-Win10UpdateEntries {
         [string]$Html,
 
         [Parameter()]
-        [string]$WindowsVersion,
-
-        [Parameter()]
-        [switch]$IncludePreview
+        [string]$WindowsVersion
     )
 
     $results        = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -78,9 +75,6 @@ function ConvertTo-Win10UpdateEntries {
         else {
             'Standard'
         }
-
-        # Exclude Preview / Out-of-band unless requested
-        if (-not $IncludePreview -and $releaseType -ne 'Standard') { continue }
 
         # Normalize KB number: remove any space between "KB" and the digits
         $kbNumber = $entryMatch.Groups['kb'].Value -replace '\s+', ''

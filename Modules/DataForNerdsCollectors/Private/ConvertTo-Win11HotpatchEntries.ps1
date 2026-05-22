@@ -13,10 +13,7 @@ function ConvertTo-Win11HotpatchEntries {
         [string]$Html,
 
         [Parameter()]
-        [string]$WindowsVersion,
-
-        [Parameter()]
-        [switch]$IncludePreview
+        [string]$WindowsVersion
     )
 
     $results        = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -77,9 +74,6 @@ function ConvertTo-Win11HotpatchEntries {
         else {
             'Hotpatch'
         }
-
-        # OOB hotpatches are suppressed by default
-        if (-not $IncludePreview -and $releaseType -eq 'Hotpatch-OOB') { continue }
 
         # Deduplicate
         $dedupeKey = "$currentVersion|$($entryMatch.Groups['kb'].Value)"
