@@ -20,6 +20,9 @@ $script:Win11HotpatchHistoryUrl = 'https://support.microsoft.com/en-us/topic/rel
 # Office language codes and BCP 47 mappings (MS-OE376 specification)
 $script:LanguageCodesUrl = 'https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
 
+# Microsoft 365 Apps update history listed by date (all channels in one table)
+$script:Microsoft365AppsUpdateHistoryUrl = 'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'
+
 # Headers that prevent Microsoft's CDN from returning a captcha or reduced-content page
 $script:DefaultHeaders = @{
     'User-Agent'      = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
@@ -47,4 +50,4 @@ Get-ChildItem -Path "$PSScriptRoot\Public\*.ps1" -ErrorAction SilentlyContinue |
 # Export public functions
 # ---------------------------------------------------------------------------
 
-Export-ModuleMember -Function 'Get-WindowsUpdateHistory', 'Get-LanguageCodes'
+Export-ModuleMember -Function 'Get-WindowsUpdateHistory', 'Get-LanguageCodes', 'Get-Microsoft365AppsUpdateHistory'
