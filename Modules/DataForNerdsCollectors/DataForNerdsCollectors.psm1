@@ -23,6 +23,12 @@ $script:LanguageCodesUrl = 'https://learn.microsoft.com/en-us/openspecs/office_s
 # Microsoft 365 Apps update history listed by date (all channels in one table)
 $script:Microsoft365AppsUpdateHistoryUrl = 'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'
 
+# Windows 10 client release information - version-to-base-build mapping
+$script:Windows10ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/release-information'
+
+# Windows 11 client release information - version-to-base-build mapping
+$script:Windows11ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information'
+
 # Headers that prevent Microsoft's CDN from returning a captcha or reduced-content page
 $script:DefaultHeaders = @{
     'User-Agent'      = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
@@ -50,4 +56,4 @@ Get-ChildItem -Path "$PSScriptRoot\Public\*.ps1" -ErrorAction SilentlyContinue |
 # Export public functions
 # ---------------------------------------------------------------------------
 
-Export-ModuleMember -Function 'Get-WindowsUpdateHistory', 'Get-LanguageCodes', 'Get-Microsoft365AppsUpdateHistory'
+Export-ModuleMember -Function 'Get-WindowsUpdateHistory', 'Get-LanguageCodes', 'Get-Microsoft365AppsUpdateHistory', 'Get-WindowsReleaseHistory'
