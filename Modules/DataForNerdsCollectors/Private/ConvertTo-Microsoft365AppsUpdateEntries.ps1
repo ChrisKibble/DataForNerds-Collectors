@@ -67,12 +67,14 @@ function ConvertTo-Microsoft365AppsUpdateEntries {
 
     Write-Verbose "Parsing $($rows.Count) body rows"
 
+    $lastYear = ''
     foreach ($row in $rows) {
         $cells = [regex]::Matches($row.Groups[1].Value, '(?s)<td[^>]*>(.*?)</td>')
         if ($cells.Count -lt $headers.Count) { continue }
 
         $year     = ($cells[$yearIdx].Groups[1].Value -replace '<[^>]+>', '').Trim()
         $monthDay = ($cells[$dateIdx].Groups[1].Value -replace '<[^>]+>', '').Trim()
+        if ($year) { $lastYear = $year } else { $year = $lastYear }
         if (-not $year -or -not $monthDay) { continue }
 
         $releaseDate = [datetime]::MinValue
