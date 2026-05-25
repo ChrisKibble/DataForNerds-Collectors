@@ -181,10 +181,10 @@ jobs:
         run: wrangler r2 object put dfn-collectors/v2/windows-11-update-history.json --file=output-win11.json --content-type=application/json --remote
 
       - name: Update index.json in R2
-        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
         run: |
           set -euo pipefail
           set +e
@@ -201,6 +201,9 @@ jobs:
               exit 1
             fi
           fi
+          OLD_LM_ALL=$(jq -r '.datasets[] | select(.name == "windows-update-history") | .lastModified // "null"' index-current.json)
+          OLD_LM_WIN10=$(jq -r '.datasets[] | select(.name == "windows-10-update-history") | .lastModified // "null"' index-current.json)
+          OLD_LM_WIN11=$(jq -r '.datasets[] | select(.name == "windows-11-update-history") | .lastModified // "null"' index-current.json)
           jq \
             --arg all   "$LAST_MODIFIED_ALL" \
             --arg win10 "$LAST_MODIFIED_WIN10" \
@@ -212,6 +215,13 @@ jobs:
               else . end)' \
             index-current.json > index-updated.json
           wrangler r2 object put dfn-collectors/v2/index.json --file=index-updated.json --content-type=application/json --remote
+          if [ "$OLD_LM_ALL" != "$LAST_MODIFIED_ALL" ] || [ "$OLD_LM_WIN10" != "$LAST_MODIFIED_WIN10" ] || [ "$OLD_LM_WIN11" != "$LAST_MODIFIED_WIN11" ]; then
+            curl -fsSL -X POST \
+              "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"files":["https://api.datafornerds.io/v2/index.json"]}'
+          fi
 
       - name: Purge Cloudflare cache for changed datasets
         if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true'
@@ -224,7 +234,6 @@ jobs:
           [ "$ALL_CHANGED"   = "true" ] && files+=("https://api.datafornerds.io/v2/windows-update-history.json")
           [ "$WIN10_CHANGED" = "true" ] && files+=("https://api.datafornerds.io/v2/windows-10-update-history.json")
           [ "$WIN11_CHANGED" = "true" ] && files+=("https://api.datafornerds.io/v2/windows-11-update-history.json")
-          files+=("https://api.datafornerds.io/v2/index.json")
           printf '%s\n' "${files[@]}" | jq -R . | jq -sc '{files:.}' | \
             curl -fsSL -X POST \
               "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
