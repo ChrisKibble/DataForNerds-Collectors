@@ -73,7 +73,7 @@ jobs:
           Write-Host "Returned $($results.Count) total record(s): $($win10.Count) Win10, $($win11.Count) Win11, $($server2022.Count) Server2022."
 
           # --- Validation ---
-          $requiredFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild','FullVersion','ReleaseDate','ReleaseType','ArticleUrl')
+          $requiredFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild','FullVersion','ReleaseDate','ReleaseType','IsExpired','ArticleUrl')
           for ($i = 0; $i -lt $results.Count; $i++) {
               $missing = $requiredFields | Where-Object { $_ -notin $results[$i].PSObject.Properties.Name }
               if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }

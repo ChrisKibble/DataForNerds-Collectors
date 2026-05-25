@@ -16,6 +16,7 @@ function Get-WindowsUpdateHistory {
             FullVersion    - Full Windows version in 10.0.{Build} format
             ReleaseDate    - ISO 8601 date, e.g. '2026-05-12'
             ReleaseType    - 'Standard', 'Preview', 'Out-of-band', 'Hotpatch', or 'Hotpatch-OOB'
+            IsExpired      - $true if Microsoft marked the update as EXPIRED
             ArticleUrl     - Full URL of the KB article on support.microsoft.com
 
         When a KB targets multiple simultaneous OS builds, one object is returned per build.
@@ -48,7 +49,7 @@ function Get-WindowsUpdateHistory {
         PSCustomObject[]
         Each object has: OSType (String), MajorVersion (Int), WindowsVersion (String),
         KBNumber (String), OSBuild (String), FullVersion (String), ReleaseDate (String),
-        ReleaseType (String), ArticleUrl (String).
+        ReleaseType (String), IsExpired (Boolean), ArticleUrl (String).
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]

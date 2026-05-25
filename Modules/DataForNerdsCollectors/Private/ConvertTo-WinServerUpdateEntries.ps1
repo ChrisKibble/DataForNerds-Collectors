@@ -41,7 +41,8 @@ function ConvertTo-WinServerUpdateEntries {
         '(?<build1>[\d.]+)' +
         '(?:\s+and\s+(?<build2>[\d.]+))?' +
         '\)' +
-        '(?:\s*(?<reltype>Preview|Out-of-band))?'
+        '(?:\s*(?<reltype>Preview|Out-of-band))?' +
+        '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
     Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (WinServer)"
@@ -83,6 +84,8 @@ function ConvertTo-WinServerUpdateEntries {
             'Standard'
         }
 
+        $isExpired = $entryMatch.Groups['expired'].Success
+
         $kbNumber  = $entryMatch.Groups['kb'].Value
         $dedupeKey = "$currentVersion|$kbNumber"
         if (-not $seen.Add($dedupeKey)) { continue }
@@ -109,6 +112,7 @@ function ConvertTo-WinServerUpdateEntries {
                 FullVersion    = "10.0.$build"
                 ReleaseDate    = $releaseDate
                 ReleaseType    = $releaseType
+                IsExpired      = $isExpired
                 ArticleUrl     = $articleUrl
             })
         }
