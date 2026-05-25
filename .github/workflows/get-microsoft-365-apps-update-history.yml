@@ -74,6 +74,7 @@ jobs:
 
           $envelope = [PSCustomObject]@{
               metadata = [PSCustomObject]@{
+                  apiVersion   = 'v2'
                   dataset      = 'm365-apps-update-history'
                   sourceUrls   = @(
                       'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'

@@ -74,6 +74,7 @@ jobs:
 
           $envelope = [PSCustomObject]@{
               metadata = [PSCustomObject]@{
+                  apiVersion   = 'v2'
                   dataset      = 'windows-release-history'
                   sourceUrls   = @(
                       'https://learn.microsoft.com/en-us/windows/release-health/release-information',
