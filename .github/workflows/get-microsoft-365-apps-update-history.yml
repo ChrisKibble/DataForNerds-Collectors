@@ -98,6 +98,7 @@ jobs:
                   provider     = 'DataForNerds'
                   apiVersion   = 'v2'
                   dataset      = 'm365-apps-update-history'
+                  recordCount  = $results.Count
                   sourceUrls   = @(
                       'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'
                   )

@@ -107,6 +107,7 @@ jobs:
                       provider      = 'DataForNerds'
                       apiVersion    = 'v2'
                       dataset       = $dataset
+                      recordCount   = @($data).Count
                       sourceUrls    = $sourceUrls
                       lastModified  = $lastModified
                       lastCollected = $script:now
