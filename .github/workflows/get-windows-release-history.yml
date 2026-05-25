@@ -1,0 +1,54 @@
+name: Get-WindowsReleaseHistory
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-collector:
+    name: Run Get-WindowsReleaseHistory
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PowerShell (latest stable)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          DEB_URL=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/PowerShell/PowerShell/releases/latest \
+            | grep -oE '"browser_download_url": *"[^"]+deb_amd64\.deb"' \
+            | head -n 1 \
+            | sed -E 's/.*"(https[^"]+)".*/\1/')
+          if [ -z "${DEB_URL}" ]; then
+            echo "Could not resolve latest PowerShell .deb asset URL." >&2
+            exit 1
+          fi
+          echo "Downloading: ${DEB_URL}"
+          curl -fsSL -o /tmp/powershell.deb "${DEB_URL}"
+          sudo dpkg -i /tmp/powershell.deb || sudo apt-get install -f -y
+          pwsh --version
+
+      - name: Run Get-WindowsReleaseHistory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
+
+          $results = Get-WindowsReleaseHistory
+
+          Write-Host "Returned $($results.Count) record(s)."
+          $json = $results | ConvertTo-Json -Depth 5
+          Set-Content -Path "$env:GITHUB_WORKSPACE/output.json" -Value $json -Encoding utf8
+
+      - name: Upload to Cloudflare R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@4 r2 object put dfn-collectors/v2/windows-release-history.json --file=output.json --content-type=application/json --remote
