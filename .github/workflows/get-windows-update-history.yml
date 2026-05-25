@@ -47,6 +47,12 @@ jobs:
 
           $results = Get-WindowsUpdateHistory
 
-          Write-Host "Returned $($results.Count) update record(s)."
-          $results | Format-Table -AutoSize | Out-String -Width 4096 | Write-Host
-          $results | ConvertTo-Json -Depth 5 | Write-Host
+          Write-Host "Returned $($results.Count) record(s)."
+          $json = $results | ConvertTo-Json -Depth 5
+          Set-Content -Path "$env:GITHUB_WORKSPACE/output.json" -Value $json -Encoding utf8
+
+      - name: Upload to Cloudflare R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@4 r2 object put dfn-collectors/v2/windows-update-history.json --file=output.json --content-type=application/json --remote
