@@ -36,7 +36,8 @@ function ConvertTo-Win10UpdateEntries {
         '\s*\(OS Builds?\s*' +
         '(?<allbuilds>[^)]+)' +
         '\)' +
-        '(?:\s*(?<reltype>Preview|Out-of-band))?'
+        '(?:\s*(?<reltype>Preview|Out-of-band))?' +
+        '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
     Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (Win10)"
@@ -76,6 +77,8 @@ function ConvertTo-Win10UpdateEntries {
             'Standard'
         }
 
+        $isExpired = $entryMatch.Groups['expired'].Success
+
         # Normalize KB number: remove any space between "KB" and the digits
         $kbNumber = $entryMatch.Groups['kb'].Value -replace '\s+', ''
 
@@ -105,6 +108,7 @@ function ConvertTo-Win10UpdateEntries {
                 FullVersion    = "10.0.$build"
                 ReleaseDate    = $releaseDate
                 ReleaseType    = $releaseType
+                IsExpired      = $isExpired
                 ArticleUrl     = $articleUrl
             })
         }

@@ -35,7 +35,8 @@ function ConvertTo-Win11HotpatchEntries {
         '(?<build1>[\d.]+)' +
         '(?:\s+and\s+(?<build2>[\d.]+))?' +
         '\)' +
-        '(?:\s*(?<reltype>Out-of-band))?'
+        '(?:\s*(?<reltype>Out-of-band))?' +
+        '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
     Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (Win11 hotpatch)"
@@ -75,6 +76,8 @@ function ConvertTo-Win11HotpatchEntries {
             'Hotpatch'
         }
 
+        $isExpired = $entryMatch.Groups['expired'].Success
+
         # Deduplicate
         $dedupeKey = "$currentVersion|$($entryMatch.Groups['kb'].Value)"
         if (-not $seen.Add($dedupeKey)) { continue }
@@ -101,6 +104,7 @@ function ConvertTo-Win11HotpatchEntries {
                 FullVersion    = "11.0.$build"
                 ReleaseDate    = $releaseDate
                 ReleaseType    = $releaseType
+                IsExpired      = $isExpired
                 ArticleUrl     = $articleUrl
             })
         }

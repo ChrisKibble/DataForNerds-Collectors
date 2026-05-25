@@ -33,7 +33,8 @@ function ConvertTo-Win11UpdateEntries {
         '(?<build1>[\d.]+)' +
         '(?:\s+and\s+(?<build2>[\d.]+))?' +
         '\)' +
-        '(?:\s*(?<reltype>Preview|Out-of-band))?'
+        '(?:\s*(?<reltype>Preview|Out-of-band))?' +
+        '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
     Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (Win11)"
@@ -66,6 +67,8 @@ function ConvertTo-Win11UpdateEntries {
             'Standard'
         }
 
+        $isExpired = $entryMatch.Groups['expired'].Success
+
         # Deduplicate
         $dedupeKey = "$currentVersion|$($entryMatch.Groups['kb'].Value)"
         if (-not $seen.Add($dedupeKey)) { continue }
@@ -93,6 +96,7 @@ function ConvertTo-Win11UpdateEntries {
                 FullVersion    = "11.0.$build"
                 ReleaseDate    = $releaseDate
                 ReleaseType    = $releaseType
+                IsExpired      = $isExpired
                 ArticleUrl     = $articleUrl
             })
         }

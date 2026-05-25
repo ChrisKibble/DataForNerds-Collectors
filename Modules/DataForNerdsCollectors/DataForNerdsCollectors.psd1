@@ -4,7 +4,7 @@
 
 @{
     RootModule        = 'DataForNerdsCollectors.psm1'
-    ModuleVersion     = '1.0.10'
+    ModuleVersion     = '1.0.12'
     GUID              = 'a9c3f5e7-2d6b-4a8f-c1e9-7f3b5d8a1c6e'
 
     Author            = 'Data For Nerds'
@@ -25,6 +25,9 @@
             LicenseUri   = ''
             ProjectUri   = ''
             ReleaseNotes = '
+1.0.11 - Add IsExpired boolean field to Get-WindowsUpdateHistory.
+  - Detects EXPIRED markers in Microsoft''s update history page HTML.
+
 1.0.9 - Add Windows Server support to Get-WindowsUpdateHistory.
   - New private function ConvertTo-WinServerUpdateEntries parses Server 2022, Server 23H2, Server 2025.
   - OSType is now ''Client'' or ''Server''; MajorVersion accepts 10, 11, 2022, 2025.
