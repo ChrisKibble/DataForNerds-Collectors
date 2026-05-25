@@ -79,7 +79,6 @@ jobs:
                       'https://learn.microsoft.com/en-us/windows/release-health/release-information',
                       'https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information'
                   )
-                  generatedAt  = $now
                   lastModified = $lastModified
                   lastCollected = $now
               }
