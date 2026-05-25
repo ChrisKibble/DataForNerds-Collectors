@@ -37,7 +37,7 @@ function ConvertTo-WindowsReleaseHistoryEntries {
             MajorVersion   = $MajorVersion
             WindowsVersion = $version
             OSBuild        = $build
-            FullVersion    = "$MajorVersion.0.$build"
+            FullVersion    = "10.0.$build"
         })
     }
 

@@ -101,7 +101,7 @@ function ConvertTo-Win11HotpatchEntries {
                 WindowsVersion = $currentVersion
                 KBNumber       = $entryMatch.Groups['kb'].Value
                 OSBuild        = $build
-                FullVersion    = "11.0.$build"
+                FullVersion    = "10.0.$build"
                 ReleaseDate    = $releaseDate
                 ReleaseType    = $releaseType
                 IsExpired      = $isExpired
