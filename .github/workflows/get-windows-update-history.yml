@@ -204,6 +204,9 @@ jobs:
               exit 1
             fi
           fi
+          LAST_MODIFIED_ALL=$(jq -r '.metadata.lastModified' output-all.json)
+          LAST_MODIFIED_WIN10=$(jq -r '.metadata.lastModified' output-win10.json)
+          LAST_MODIFIED_WIN11=$(jq -r '.metadata.lastModified' output-win11.json)
           OLD_LM_ALL=$(jq -r '.datasets[] | select(.name == "windows-update-history") | .lastModified // "null"' index-current.json)
           OLD_LM_WIN10=$(jq -r '.datasets[] | select(.name == "windows-10-update-history") | .lastModified // "null"' index-current.json)
           OLD_LM_WIN11=$(jq -r '.datasets[] | select(.name == "windows-11-update-history") | .lastModified // "null"' index-current.json)

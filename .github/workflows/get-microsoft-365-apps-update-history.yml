@@ -151,6 +151,7 @@ jobs:
               exit 1
             fi
           fi
+          LAST_MODIFIED=$(jq -r '.metadata.lastModified' output.json)
           OLD_LM=$(jq -r '.datasets[] | select(.name == "m365-apps-update-history") | .lastModified // "null"' index-current.json)
           jq --arg name "m365-apps-update-history" --arg lm "$LAST_MODIFIED" \
             '.datasets |= map(if .name == $name then .lastModified = $lm else . end)' \
