@@ -34,6 +34,13 @@ jobs:
           sudo dpkg -i /tmp/powershell.deb || sudo apt-get install -f -y
           pwsh --version
 
+      - name: Fetch current JSON from R2
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@4 r2 object get dfn-collectors/v2/m365-apps-update-history.json --file=current.json --remote
+
       - name: Run Get-Microsoft365AppsUpdateHistory
         shell: pwsh
         run: |
@@ -41,11 +48,45 @@ jobs:
 
           Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
 
+          $now     = [DateTime]::UtcNow.ToString('o')
           $results = Get-Microsoft365AppsUpdateHistory
-
           Write-Host "Returned $($results.Count) record(s)."
-          $json = $results | ConvertTo-Json -Depth 5
-          Set-Content -Path "$env:GITHUB_WORKSPACE/output.json" -Value $json -Encoding utf8
+
+          $currentFile = "$env:GITHUB_WORKSPACE/current.json"
+          $uploadFile  = "$env:GITHUB_WORKSPACE/output.json"
+          $lastModified = $null
+
+          if (Test-Path $currentFile) {
+              $current      = Get-Content $currentFile -Raw | ConvertFrom-Json
+              $lastModified = $current.metadata.lastModified
+              $newDataJson  = $results      | ConvertTo-Json -Depth 10 -Compress
+              $oldDataJson  = $current.data | ConvertTo-Json -Depth 10 -Compress
+              if ($newDataJson -ne $oldDataJson) {
+                  Write-Host "Data has changed — updating lastModified."
+                  $lastModified = $now
+              } else {
+                  Write-Host "Data unchanged — keeping lastModified: $lastModified"
+              }
+          } else {
+              Write-Host "No existing data found — setting lastModified to now."
+              $lastModified = $now
+          }
+
+          $envelope = [PSCustomObject]@{
+              metadata = [PSCustomObject]@{
+                  dataset      = 'm365-apps-update-history'
+                  sourceUrls   = @(
+                      'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'
+                  )
+                  generatedAt  = $now
+                  lastModified = $lastModified
+                  lastCollected = $now
+              }
+              data = $results
+          }
+
+          $envelope | ConvertTo-Json -Depth 10 | Set-Content -Path $uploadFile -Encoding utf8
+          Write-Host "Envelope written to output.json"
 
       - name: Upload to Cloudflare R2
         env:
