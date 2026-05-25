@@ -95,7 +95,9 @@ jobs:
                   $newDataJson = $newData      | ConvertTo-Json -Depth 10 -Compress
                   $oldDataJson = $current.data | ConvertTo-Json -Depth 10 -Compress
                   if ($newDataJson -ne $oldDataJson) { return $script:now }
-                  return $current.metadata.lastModified
+                  $lm = $current.metadata.lastModified
+                  if ($lm -is [DateTime]) { return $lm.ToUniversalTime().ToString('o') }
+                  return [string]$lm
               }
               return $script:now
           }
