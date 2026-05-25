@@ -1,0 +1,37 @@
+name: Install PowerShell
+description: Install a pinned PowerShell version from GitHub Releases (.deb, amd64)
+
+inputs:
+  powershell-version:
+    description: PowerShell release tag without the leading 'v' (e.g. 7.6.2)
+    required: false
+    default: '7.6.2'
+
+runs:
+  using: composite
+  steps:
+    - name: Install PowerShell ${{ inputs.powershell-version }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PWSH_VERSION: ${{ inputs.powershell-version }}
+      run: |
+        set -euo pipefail
+        # aka.ms/install-powershell.sh does not yet support Ubuntu 24.04 (current
+        # ubuntu-latest), so we resolve the .deb asset directly from the GitHub
+        # release. Using GITHUB_TOKEN avoids the unauthenticated rate limit.
+        DEB_URL=$(curl -fsSL \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v${PWSH_VERSION}" \
+          | grep -oE '"browser_download_url": *"[^"]+deb_amd64\.deb"' \
+          | head -n 1 \
+          | sed -E 's/.*"(https[^"]+)".*/\1/')
+        if [ -z "${DEB_URL}" ]; then
+          echo "Could not resolve PowerShell v${PWSH_VERSION} .deb asset URL." >&2
+          exit 1
+        fi
+        echo "Downloading: ${DEB_URL}"
+        curl -fsSL -o /tmp/powershell.deb "${DEB_URL}"
+        sudo dpkg -i /tmp/powershell.deb || sudo apt-get install -f -y
+        pwsh --version
