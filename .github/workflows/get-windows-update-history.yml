@@ -77,6 +77,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
+          . "$env:GITHUB_WORKSPACE/.github/scripts/envelope-helpers.ps1"
 
           $now     = [DateTime]::UtcNow.ToString('o')
           $maxAttempts = 3
@@ -106,59 +107,31 @@ jobs:
           if ($win11.Count   -lt  50) { throw "Expected at least 50 Win11 records, got $($win11.Count)" }
           Write-Host "Validation passed."
 
-          function Get-LastModified($newData, $currentFile) {
-              if (Test-Path $currentFile) {
-                  $current     = Get-Content $currentFile -Raw | ConvertFrom-Json
-                  $newDataJson = $newData      | ConvertTo-Json -Depth 10 -Compress
-                  $oldDataJson = $current.data | ConvertTo-Json -Depth 10 -Compress
-                  if ($newDataJson -ne $oldDataJson) { return $script:now }
-                  $lm = $current.metadata.lastModified
-                  if ($lm -is [DateTime]) { return $lm.ToUniversalTime().ToString('o') }
-                  return [string]$lm
-              }
-              return $script:now
-          }
-
-          function New-Envelope($dataset, $sourceUrls, $data, $lastModified) {
-              [PSCustomObject]@{
-                  metadata = [PSCustomObject]@{
-                      provider      = 'DataForNerds'
-                      apiVersion    = 'v2'
-                      dataset       = $dataset
-                      recordCount   = @($data).Count
-                      sourceUrls    = $sourceUrls
-                      lastModified  = $lastModified
-                      lastCollected = $script:now
-                  }
-                  data = $data
-              }
-          }
-
           $ws = $env:GITHUB_WORKSPACE
 
           # All updates
-          $lmAll = Get-LastModified $results "$ws/current-all.json"
+          $lmAll = Get-LastModified $results "$ws/current-all.json" $now
           Write-Host "windows-update-history    lastModified: $lmAll"
           New-Envelope 'windows-update-history' @(
               'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d',
               'https://aka.ms/Windows11UpdateHistory',
               'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
-          ) $results $lmAll | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-all.json" -Encoding utf8
+          ) $results $lmAll $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-all.json" -Encoding utf8
 
           # Windows 10 only
-          $lmWin10 = Get-LastModified $win10 "$ws/current-win10.json"
+          $lmWin10 = Get-LastModified $win10 "$ws/current-win10.json" $now
           Write-Host "windows-10-update-history lastModified: $lmWin10"
           New-Envelope 'windows-10-update-history' @(
               'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d'
-          ) $win10 $lmWin10 | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win10.json" -Encoding utf8
+          ) $win10 $lmWin10 $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win10.json" -Encoding utf8
 
           # Windows 11 only
-          $lmWin11 = Get-LastModified $win11 "$ws/current-win11.json"
+          $lmWin11 = Get-LastModified $win11 "$ws/current-win11.json" $now
           Write-Host "windows-11-update-history lastModified: $lmWin11"
           New-Envelope 'windows-11-update-history' @(
               'https://aka.ms/Windows11UpdateHistory',
               'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
-          ) $win11 $lmWin11 | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win11.json" -Encoding utf8
+          ) $win11 $lmWin11 $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win11.json" -Encoding utf8
 
           Add-Content -Path $env:GITHUB_ENV -Value "ALL_CHANGED=$(($lmAll -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "WIN10_CHANGED=$(($lmWin10 -eq $now).ToString().ToLower())"

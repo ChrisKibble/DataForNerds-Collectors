@@ -64,6 +64,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
+          . "$env:GITHUB_WORKSPACE/.github/scripts/envelope-helpers.ps1"
 
           $now     = [DateTime]::UtcNow.ToString('o')
           $maxAttempts = 3
@@ -89,41 +90,13 @@ jobs:
           if ($results.Count -lt 5) { throw "Expected at least 5 records, got $($results.Count)" }
           Write-Host "Validation passed."
 
-          function Get-LastModified($newData, $currentFile) {
-              if (Test-Path $currentFile) {
-                  $current     = Get-Content $currentFile -Raw | ConvertFrom-Json
-                  $newDataJson = $newData      | ConvertTo-Json -Depth 10 -Compress
-                  $oldDataJson = $current.data | ConvertTo-Json -Depth 10 -Compress
-                  if ($newDataJson -ne $oldDataJson) { return $script:now }
-                  $lm = $current.metadata.lastModified
-                  if ($lm -is [DateTime]) { return $lm.ToUniversalTime().ToString('o') }
-                  return [string]$lm
-              }
-              return $script:now
-          }
-
-          function New-Envelope($dataset, $sourceUrls, $data, $lastModified) {
-              [PSCustomObject]@{
-                  metadata = [PSCustomObject]@{
-                      provider      = 'DataForNerds'
-                      apiVersion    = 'v2'
-                      dataset       = $dataset
-                      recordCount   = @($data).Count
-                      sourceUrls    = $sourceUrls
-                      lastModified  = $lastModified
-                      lastCollected = $script:now
-                  }
-                  data = $data
-              }
-          }
-
           $ws = $env:GITHUB_WORKSPACE
-          $lm = Get-LastModified $results "$ws/current.json"
+          $lm = Get-LastModified $results "$ws/current.json" $now
           Write-Host "windows-release-history lastModified: $lm"
           New-Envelope 'windows-release-history' @(
               'https://learn.microsoft.com/en-us/windows/release-health/release-information',
               'https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information'
-          ) $results $lm | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output.json" -Encoding utf8
+          ) $results $lm $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output.json" -Encoding utf8
           Add-Content -Path $env:GITHUB_ENV -Value "DATA_CHANGED=$(($lm -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED=$lm"
 
