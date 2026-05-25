@@ -117,6 +117,13 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN10=$lmWin10"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN11=$lmWin11"
 
+      - name: Validate output against schema
+        run: |
+          pip install -q check-jsonschema
+          check-jsonschema --schemafile https://api.datafornerds.io/v2/schemas/windows-update-history.schema.json output-all.json
+          check-jsonschema --schemafile https://api.datafornerds.io/v2/schemas/windows-10-update-history.schema.json output-win10.json
+          check-jsonschema --schemafile https://api.datafornerds.io/v2/schemas/windows-11-update-history.schema.json output-win11.json
+
       - name: Upload windows-update-history.json to R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
