@@ -73,43 +73,38 @@ jobs:
           if ($results.Count -lt 100) { throw "Expected at least 100 records, got $($results.Count)" }
           Write-Host "Validation passed."
 
-          $currentFile = "$env:GITHUB_WORKSPACE/current.json"
-          $uploadFile  = "$env:GITHUB_WORKSPACE/output.json"
-          $lastModified = $null
-
-          if (Test-Path $currentFile) {
-              $current      = Get-Content $currentFile -Raw | ConvertFrom-Json
-              $lastModified = $current.metadata.lastModified
-              $newDataJson  = $results      | ConvertTo-Json -Depth 10 -Compress
-              $oldDataJson  = $current.data | ConvertTo-Json -Depth 10 -Compress
-              if ($newDataJson -ne $oldDataJson) {
-                  Write-Host "Data has changed — updating lastModified."
-                  $lastModified = $now
-              } else {
-                  Write-Host "Data unchanged — keeping lastModified: $lastModified"
+          function Get-LastModified($newData, $currentFile) {
+              if (Test-Path $currentFile) {
+                  $current     = Get-Content $currentFile -Raw | ConvertFrom-Json
+                  $newDataJson = $newData      | ConvertTo-Json -Depth 10 -Compress
+                  $oldDataJson = $current.data | ConvertTo-Json -Depth 10 -Compress
+                  if ($newDataJson -ne $oldDataJson) { return $script:now }
+                  return $current.metadata.lastModified
               }
-          } else {
-              Write-Host "No existing data found — setting lastModified to now."
-              $lastModified = $now
+              return $script:now
           }
 
-          $envelope = [PSCustomObject]@{
-              metadata = [PSCustomObject]@{
-                  provider     = 'DataForNerds'
-                  apiVersion   = 'v2'
-                  dataset      = 'language-codes'
-                  recordCount  = $results.Count
-                  sourceUrls   = @(
-                      'https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
-                  )
-                  lastModified = $lastModified
-                  lastCollected = $now
+          function New-Envelope($dataset, $sourceUrls, $data, $lastModified) {
+              [PSCustomObject]@{
+                  metadata = [PSCustomObject]@{
+                      provider      = 'DataForNerds'
+                      apiVersion    = 'v2'
+                      dataset       = $dataset
+                      recordCount   = @($data).Count
+                      sourceUrls    = $sourceUrls
+                      lastModified  = $lastModified
+                      lastCollected = $script:now
+                  }
+                  data = $data
               }
-              data = $results
           }
 
-          $envelope | ConvertTo-Json -Depth 10 | Set-Content -Path $uploadFile -Encoding utf8
-          Write-Host "Envelope written to output.json"
+          $ws = $env:GITHUB_WORKSPACE
+          $lm = Get-LastModified $results "$ws/current.json"
+          Write-Host "language-codes lastModified: $lm"
+          New-Envelope 'language-codes' @(
+              'https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
+          ) $results $lm | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output.json" -Encoding utf8
 
       - name: Upload to Cloudflare R2
         env:
