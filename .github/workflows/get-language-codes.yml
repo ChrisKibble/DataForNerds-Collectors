@@ -23,7 +23,7 @@ jobs:
           DEB_URL=$(curl -fsSL \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/PowerShell/PowerShell/releases/latest \
+            https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v7.6.2 \
             | grep -oE '"browser_download_url": *"[^"]+deb_amd64\.deb"' \
             | head -n 1 \
             | sed -E 's/.*"(https[^"]+)".*/\1/')
