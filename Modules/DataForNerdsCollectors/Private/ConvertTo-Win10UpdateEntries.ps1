@@ -89,6 +89,12 @@ function ConvertTo-Win10UpdateEntries {
                     ForEach-Object { $_.Trim() } |
                     Where-Object   { $_ -match '^\d' }
 
+        $releaseDate = [DateTime]::ParseExact(
+            $entryMatch.Groups['date'].Value.Trim(),
+            'MMMM d, yyyy',
+            [System.Globalization.CultureInfo]::InvariantCulture
+        ).ToString('yyyy-MM-dd')
+
         foreach ($build in $osBuilds) {
             $results.Add([PSCustomObject]@{
                 OSType         = 'Client'
@@ -97,7 +103,7 @@ function ConvertTo-Win10UpdateEntries {
                 KBNumber       = $kbNumber
                 OSBuild        = $build
                 FullVersion    = "10.0.$build"
-                ReleaseDate    = $entryMatch.Groups['date'].Value.Trim()
+                ReleaseDate    = $releaseDate
                 ReleaseType    = $releaseType
                 ArticleUrl     = $articleUrl
             })

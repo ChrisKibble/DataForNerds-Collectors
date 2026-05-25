@@ -77,6 +77,12 @@ function ConvertTo-Win11UpdateEntries {
             $osBuilds.Add($entryMatch.Groups['build2'].Value.Trim())
         }
 
+        $releaseDate = [DateTime]::ParseExact(
+            $entryMatch.Groups['date'].Value.Trim(),
+            'MMMM d, yyyy',
+            [System.Globalization.CultureInfo]::InvariantCulture
+        ).ToString('yyyy-MM-dd')
+
         foreach ($build in $osBuilds) {
             $results.Add([PSCustomObject]@{
                 OSType         = 'Client'
@@ -85,7 +91,7 @@ function ConvertTo-Win11UpdateEntries {
                 KBNumber       = $entryMatch.Groups['kb'].Value
                 OSBuild        = $build
                 FullVersion    = "11.0.$build"
-                ReleaseDate    = $entryMatch.Groups['date'].Value
+                ReleaseDate    = $releaseDate
                 ReleaseType    = $releaseType
                 ArticleUrl     = $articleUrl
             })
