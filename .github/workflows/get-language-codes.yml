@@ -52,6 +52,13 @@ jobs:
           $results = Get-LanguageCodes
           Write-Host "Returned $($results.Count) record(s)."
 
+          # --- Validation ---
+          $requiredFields = @('LanguageCode','Description','BCP47')
+          $missing = $requiredFields | Where-Object { $_ -notin $results[0].PSObject.Properties.Name }
+          if ($missing) { throw "First record is missing fields: $($missing -join ', ')" }
+          if ($results.Count -lt 100) { throw "Expected at least 100 records, got $($results.Count)" }
+          Write-Host "Validation passed."
+
           $currentFile = "$env:GITHUB_WORKSPACE/current.json"
           $uploadFile  = "$env:GITHUB_WORKSPACE/output.json"
           $lastModified = $null

@@ -72,6 +72,15 @@ jobs:
           $win11   = $results | Where-Object { $_.MajorVersion -eq 11 }
           Write-Host "Returned $($results.Count) total record(s): $($win10.Count) Win10, $($win11.Count) Win11."
 
+          # --- Validation ---
+          $requiredFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild','FullVersion','ReleaseDate','ReleaseType','ArticleUrl')
+          $missing = $requiredFields | Where-Object { $_ -notin $results[0].PSObject.Properties.Name }
+          if ($missing) { throw "First record is missing fields: $($missing -join ', ')" }
+          if ($results.Count -lt 500) { throw "Expected at least 500 total records, got $($results.Count)" }
+          if ($win10.Count   -lt 200) { throw "Expected at least 200 Win10 records, got $($win10.Count)" }
+          if ($win11.Count   -lt  50) { throw "Expected at least 50 Win11 records, got $($win11.Count)" }
+          Write-Host "Validation passed."
+
           function Get-LastModified($newData, $currentFile) {
               if (Test-Path $currentFile) {
                   $current     = Get-Content $currentFile -Raw | ConvertFrom-Json
