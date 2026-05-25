@@ -69,6 +69,7 @@ jobs:
               if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }
           }
           if ($results.Count -lt 100) { throw "Expected at least 100 records, got $($results.Count)" }
+          if ($results.Count -gt 500) { throw "Expected at most 500 records, got $($results.Count)" }
           Write-Host "Validation passed."
 
           $ws = $env:GITHUB_WORKSPACE
