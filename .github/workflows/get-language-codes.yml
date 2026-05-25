@@ -74,6 +74,7 @@ jobs:
 
           $envelope = [PSCustomObject]@{
               metadata = [PSCustomObject]@{
+                  provider     = 'DataForNerds'
                   apiVersion   = 'v2'
                   dataset      = 'language-codes'
                   sourceUrls   = @(
