@@ -17,6 +17,9 @@ $script:Win11UpdateHistoryUrl = 'https://aka.ms/Windows11UpdateHistory'
 # Windows Server sections are detected and skipped automatically
 $script:Win11HotpatchHistoryUrl = 'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
 
+# Windows Server update history page - covers Server 2022 (20348.x), Server version 23H2 (25398.x), and Server 2025 (26100.x)
+$script:WinServerUpdateHistoryUrl = 'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
+
 # Office language codes and BCP 47 mappings (MS-OE376 specification)
 $script:LanguageCodesUrl = 'https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
 

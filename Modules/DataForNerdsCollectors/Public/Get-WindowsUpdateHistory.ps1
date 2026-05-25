@@ -1,18 +1,19 @@
 function Get-WindowsUpdateHistory {
     <#
     .SYNOPSIS
-        Returns Windows 10 and Windows 11 update entries from Microsoft's update history pages.
+        Returns Windows 10, Windows 11, and Windows Server update entries from Microsoft's update history pages.
 
     .DESCRIPTION
-        Fetches the Windows 10 and Windows 11 update history pages and parses the left-side
-        navigation menus. Returns every discovered update — Standard, Preview, Out-of-band,
-        Hotpatch, and Hotpatch-OOB — with the following fields:
+        Fetches the Windows 10, Windows 11, and Windows Server update history pages and parses
+        the left-side navigation menus. Returns every discovered update — Standard, Preview,
+        Out-of-band, Hotpatch, and Hotpatch-OOB — with the following fields:
 
-            MajorVersion   - 10 or 11
-            WindowsVersion - e.g. '22H2' (Win10), '24H2' (Win11), 'RTM' (Win10 initial)
+            OSType         - 'Client' or 'Server'
+            MajorVersion   - 10, 11, 2022, or 2025
+            WindowsVersion - e.g. '22H2' (Win10), '24H2' (Win11), '2022' (Server 2022), '23H2' (Server 23H2)
             KBNumber       - e.g. 'KB5089544'
-            OSBuild        - OS build string, e.g. '19045.7291' or '26100.8457'
-            FullVersion    - Full Windows version in {Major}.0.{Build}.{UBR} format
+            OSBuild        - OS build string, e.g. '19045.7291' or '20348.5139'
+            FullVersion    - Full Windows version in 10.0.{Build} format
             ReleaseDate    - ISO 8601 date, e.g. '2026-05-12'
             ReleaseType    - 'Standard', 'Preview', 'Out-of-band', 'Hotpatch', or 'Hotpatch-OOB'
             ArticleUrl     - Full URL of the KB article on support.microsoft.com
@@ -20,8 +21,9 @@ function Get-WindowsUpdateHistory {
         When a KB targets multiple simultaneous OS builds, one object is returned per build.
 
     .PARAMETER MajorVersion
-        Filters results to a specific Windows major version (10, 11, or both).
-        Accepts an array; default is @(10, 11) (both versions).
+        Filters results to specific Windows major version(s).
+        Client versions: 10, 11. Server versions: 2022, 2025.
+        Accepts an array; default is all versions.
 
     .PARAMETER WindowsVersion
         Filters results to a single version label, e.g. '22H2' (Win10) or '24H2' (Win11).
@@ -30,7 +32,7 @@ function Get-WindowsUpdateHistory {
     .EXAMPLE
         Get-WindowsUpdateHistory | ConvertTo-Json -Depth 3
 
-        Returns every update (Win10 + Win11, all release types, plus Win11 hotpatches) as JSON.
+        Returns every update (all client and server versions) as JSON.
 
     .EXAMPLE
         Get-WindowsUpdateHistory -MajorVersion 11 -WindowsVersion '24H2' | ConvertTo-Json -Depth 3
@@ -38,30 +40,28 @@ function Get-WindowsUpdateHistory {
         Returns all Windows 11 24H2 updates as JSON.
 
     .EXAMPLE
-        Get-WindowsUpdateHistory | Where-Object ReleaseType -eq 'Preview'
+        Get-WindowsUpdateHistory -MajorVersion 2022
 
-        Returns only Preview releases across all versions.
+        Returns all Windows Server 2022 updates.
 
     .OUTPUTS
         PSCustomObject[]
         Each object has: OSType (String), MajorVersion (Int), WindowsVersion (String),
         KBNumber (String), OSBuild (String), FullVersion (String), ReleaseDate (String),
         ReleaseType (String), ArticleUrl (String).
-        OSType is always 'Client' for this function; use it to distinguish from server
-        OS entries when combining output from multiple collectors.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
     param (
-        [Parameter(HelpMessage = "Filter to specific Windows major version(s): 10, 11, or both (default: both)")]
-        [ValidateScript({ $_ -in @(10, 11) }, ErrorMessage = "MajorVersion must be 10 or 11")]
+        [Parameter(HelpMessage = "Filter to specific major version(s): 10, 11 (client) or 2022, 2025 (server)")]
+        [ValidateScript({ $_ -in @(10, 11, 2022, 2025) }, ErrorMessage = "MajorVersion must be 10, 11, 2022, or 2025")]
         [int[]]$MajorVersion,
 
         [Parameter(HelpMessage = "Filter to a specific version label, e.g. '22H2' (Win10) or '24H2' (Win11)")]
         [string]$WindowsVersion
     )
 
-    $versionsToQuery = if ($MajorVersion) { $MajorVersion | Select-Object -Unique } else { @(10, 11) }
+    $versionsToQuery = if ($MajorVersion) { $MajorVersion | Select-Object -Unique } else { @(10, 11, 2022, 2025) }
     $allResults      = [System.Collections.Generic.List[PSCustomObject]]::new()
 
     # --- Fetch Windows 10 updates if requested ---
@@ -102,6 +102,23 @@ function Get-WindowsUpdateHistory {
                     $allResults.Add($result)
                 }
                 Write-Verbose "Hotpatch entries found: $($hotpatchResults.Count)"
+            }
+        }
+    }
+
+    # --- Fetch Windows Server updates if requested (2022 and/or 2025 share one page) ---
+    $serverVersionsRequested = $versionsToQuery | Where-Object { $_ -in @(2022, 2025) }
+    if ($serverVersionsRequested) {
+        Write-Verbose "Fetching Windows Server update history"
+        $serverResponse = Invoke-ModuleWebRequest -Uri $script:WinServerUpdateHistoryUrl -ErrorAction SilentlyContinue
+        if ($serverResponse) {
+            Write-Verbose "Windows Server page size: $($serverResponse.Content.Length) bytes"
+            $serverResults = ConvertTo-WinServerUpdateEntries -Html $serverResponse.Content `
+                                                              -WindowsVersion $WindowsVersion
+            foreach ($result in $serverResults) {
+                if ($result.MajorVersion -in $serverVersionsRequested) {
+                    $allResults.Add($result)
+                }
             }
         }
     }
