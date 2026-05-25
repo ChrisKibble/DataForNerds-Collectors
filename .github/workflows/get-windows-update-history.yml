@@ -76,9 +76,12 @@ jobs:
               $missing = $requiredFields | Where-Object { $_ -notin $results[$i].PSObject.Properties.Name }
               if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }
           }
-          if ($results.Count -lt 500) { throw "Expected at least 500 total records, got $($results.Count)" }
-          if ($win10.Count   -lt 200) { throw "Expected at least 200 Win10 records, got $($win10.Count)" }
-          if ($win11.Count   -lt  50) { throw "Expected at least 50 Win11 records, got $($win11.Count)" }
+          if ($results.Count -lt  500) { throw "Expected at least 500 total records, got $($results.Count)" }
+          if ($results.Count -gt 5000) { throw "Expected at most 5000 total records, got $($results.Count)" }
+          if ($win10.Count   -lt  200) { throw "Expected at least 200 Win10 records, got $($win10.Count)" }
+          if ($win10.Count   -gt 3000) { throw "Expected at most 3000 Win10 records, got $($win10.Count)" }
+          if ($win11.Count   -lt   50) { throw "Expected at least 50 Win11 records, got $($win11.Count)" }
+          if ($win11.Count   -gt 2000) { throw "Expected at most 2000 Win11 records, got $($win11.Count)" }
           Write-Host "Validation passed."
 
           $ws = $env:GITHUB_WORKSPACE

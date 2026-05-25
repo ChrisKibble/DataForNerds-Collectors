@@ -68,7 +68,8 @@ jobs:
               $missing = $requiredFields | Where-Object { $_ -notin $results[$i].PSObject.Properties.Name }
               if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }
           }
-          if ($results.Count -lt 5) { throw "Expected at least 5 records, got $($results.Count)" }
+          if ($results.Count -lt   5) { throw "Expected at least 5 records, got $($results.Count)" }
+          if ($results.Count -gt 100) { throw "Expected at most 100 records, got $($results.Count)" }
           Write-Host "Validation passed."
 
           $ws = $env:GITHUB_WORKSPACE
