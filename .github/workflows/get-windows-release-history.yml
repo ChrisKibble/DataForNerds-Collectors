@@ -68,8 +68,10 @@ jobs:
 
           # --- Validation ---
           $requiredFields = @('OSType','MajorVersion','WindowsVersion','OSBuild','FullVersion')
-          $missing = $requiredFields | Where-Object { $_ -notin $results[0].PSObject.Properties.Name }
-          if ($missing) { throw "First record is missing fields: $($missing -join ', ')" }
+          for ($i = 0; $i -lt $results.Count; $i++) {
+              $missing = $requiredFields | Where-Object { $_ -notin $results[$i].PSObject.Properties.Name }
+              if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }
+          }
           if ($results.Count -lt 5) { throw "Expected at least 5 records, got $($results.Count)" }
           Write-Host "Validation passed."
 
