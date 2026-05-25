@@ -84,7 +84,6 @@ jobs:
                       'https://aka.ms/Windows11UpdateHistory',
                       'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
                   )
-                  generatedAt  = $now
                   lastModified = $lastModified
                   lastCollected = $now
               }

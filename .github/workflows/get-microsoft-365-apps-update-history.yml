@@ -78,7 +78,6 @@ jobs:
                   sourceUrls   = @(
                       'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'
                   )
-                  generatedAt  = $now
                   lastModified = $lastModified
                   lastCollected = $now
               }
