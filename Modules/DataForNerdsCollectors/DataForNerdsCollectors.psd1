@@ -27,7 +27,7 @@
             ReleaseNotes = '
 1.0.9 - Add Windows Server support to Get-WindowsUpdateHistory.
   - New private function ConvertTo-WinServerUpdateEntries parses Server 2022, Server 23H2, Server 2025.
-  - OSType is now 'Client' or 'Server'; MajorVersion accepts 10, 11, 2022, 2025.
+  - OSType is now ''Client'' or ''Server''; MajorVersion accepts 10, 11, 2022, 2025.
   - Server results are included by default; filter with -MajorVersion @(2022) etc.
 
 1.0.0 - Initial release.
