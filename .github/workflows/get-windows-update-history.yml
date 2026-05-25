@@ -158,6 +158,9 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "ALL_CHANGED=$(($lmAll -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "WIN10_CHANGED=$(($lmWin10 -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "WIN11_CHANGED=$(($lmWin11 -eq $now).ToString().ToLower())"
+          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_ALL=$lmAll"
+          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN10=$lmWin10"
+          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN11=$lmWin11"
 
       - name: Upload windows-update-history.json to R2
         env:
@@ -177,6 +180,39 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler r2 object put dfn-collectors/v2/windows-11-update-history.json --file=output-win11.json --content-type=application/json --remote
 
+      - name: Update index.json in R2
+        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          set +e
+          OUTPUT=$(wrangler r2 object get dfn-collectors/v2/index.json --file=index-current.json --remote 2>&1)
+          RC=$?
+          set -e
+          if [ $RC -ne 0 ]; then
+            if echo "$OUTPUT" | grep -qiE "(not found|does not exist|NoSuchKey|10007)"; then
+              echo "index.json not found in R2 — skipping index update."
+              exit 0
+            else
+              echo "::error::R2 fetch of index.json failed unexpectedly:"
+              echo "$OUTPUT"
+              exit 1
+            fi
+          fi
+          jq \
+            --arg all   "$LAST_MODIFIED_ALL" \
+            --arg win10 "$LAST_MODIFIED_WIN10" \
+            --arg win11 "$LAST_MODIFIED_WIN11" \
+            '.datasets |= map(
+              if   .name == "windows-update-history"    then .lastModified = $all
+              elif .name == "windows-10-update-history" then .lastModified = $win10
+              elif .name == "windows-11-update-history" then .lastModified = $win11
+              else . end)' \
+            index-current.json > index-updated.json
+          wrangler r2 object put dfn-collectors/v2/index.json --file=index-updated.json --content-type=application/json --remote
+
       - name: Purge Cloudflare cache for changed datasets
         if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true'
         env:
@@ -188,6 +224,7 @@ jobs:
           [ "$ALL_CHANGED"   = "true" ] && files+=("https://api.datafornerds.io/v2/windows-update-history.json")
           [ "$WIN10_CHANGED" = "true" ] && files+=("https://api.datafornerds.io/v2/windows-10-update-history.json")
           [ "$WIN11_CHANGED" = "true" ] && files+=("https://api.datafornerds.io/v2/windows-11-update-history.json")
+          files+=("https://api.datafornerds.io/v2/index.json")
           printf '%s\n' "${files[@]}" | jq -R . | jq -sc '{files:.}' | \
             curl -fsSL -X POST \
               "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
