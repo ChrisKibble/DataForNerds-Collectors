@@ -9,6 +9,9 @@ jobs:
   run-collector:
     name: Run Get-WindowsUpdateHistory
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - name: Checkout repository
@@ -220,7 +223,8 @@ jobs:
               "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
               -H "Content-Type: application/json" \
-              -d '{"files":["https://api.datafornerds.io/v2/index.json"]}'
+              -d '{"files":["https://api.datafornerds.io/v2/index.json"]}' \
+              || echo "::warning::index.json cache purge failed — stale content will expire within 6h."
           fi
 
       - name: Purge Cloudflare cache for changed datasets
@@ -239,7 +243,8 @@ jobs:
               "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
               -H "Content-Type: application/json" \
-              -d @-
+              -d @- \
+            || echo "::warning::Cache purge failed — stale content will expire within 6h."
 
       - name: Create or update failure issue
         if: failure()
