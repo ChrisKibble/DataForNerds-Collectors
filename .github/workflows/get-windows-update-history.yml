@@ -86,6 +86,7 @@ jobs:
           function New-Envelope($dataset, $sourceUrls, $data, $lastModified) {
               [PSCustomObject]@{
                   metadata = [PSCustomObject]@{
+                      provider      = 'DataForNerds'
                       apiVersion    = 'v2'
                       dataset       = $dataset
                       sourceUrls    = $sourceUrls
