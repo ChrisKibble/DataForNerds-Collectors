@@ -77,11 +77,11 @@ function ConvertTo-WinServerUpdateEntries {
 
         if ($WindowsVersion -and $currentVersion -ne $WindowsVersion.ToUpper()) { continue }
 
-        $releaseType = if ($entryMatch.Groups['reltype'].Success -and $entryMatch.Groups['reltype'].Value.Trim()) {
-            $entryMatch.Groups['reltype'].Value.Trim()
-        }
-        else {
-            'Standard'
+        $rawRelType = if ($entryMatch.Groups['reltype'].Success) { $entryMatch.Groups['reltype'].Value.Trim() } else { '' }
+        $releaseType = switch -Wildcard ($rawRelType.ToLower()) {
+            'preview'      { 'Preview' }
+            'out-of-band'  { 'Out-of-band' }
+            default        { 'Standard' }
         }
 
         $isExpired = $entryMatch.Groups['expired'].Success
