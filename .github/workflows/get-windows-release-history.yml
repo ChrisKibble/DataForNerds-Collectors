@@ -63,7 +63,18 @@ jobs:
           Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
 
           $now     = [DateTime]::UtcNow.ToString('o')
-          $results = Get-WindowsReleaseHistory
+          $maxAttempts = 3
+          $results = $null
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              try {
+                  $results = Get-WindowsReleaseHistory
+                  break
+              } catch {
+                  Write-Host "Attempt $attempt of $maxAttempts failed: $_"
+                  if ($attempt -eq $maxAttempts) { throw }
+                  Start-Sleep -Seconds (30 * $attempt)
+              }
+          }
           Write-Host "Returned $($results.Count) record(s)."
 
           # --- Validation ---

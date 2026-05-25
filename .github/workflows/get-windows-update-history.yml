@@ -76,7 +76,18 @@ jobs:
           Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
 
           $now     = [DateTime]::UtcNow.ToString('o')
-          $results = Get-WindowsUpdateHistory
+          $maxAttempts = 3
+          $results = $null
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              try {
+                  $results = Get-WindowsUpdateHistory
+                  break
+              } catch {
+                  Write-Host "Attempt $attempt of $maxAttempts failed: $_"
+                  if ($attempt -eq $maxAttempts) { throw }
+                  Start-Sleep -Seconds (30 * $attempt)
+              }
+          }
           $win10   = $results | Where-Object { $_.MajorVersion -eq 10 }
           $win11   = $results | Where-Object { $_.MajorVersion -eq 11 }
           Write-Host "Returned $($results.Count) total record(s): $($win10.Count) Win10, $($win11.Count) Win11."
