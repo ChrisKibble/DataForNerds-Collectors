@@ -13,7 +13,7 @@ function Get-WindowsUpdateHistory {
             KBNumber       - e.g. 'KB5089544'
             OSBuild        - OS build string, e.g. '19045.7291' or '26100.8457'
             FullVersion    - Full Windows version in {Major}.0.{Build}.{UBR} format
-            ReleaseDate    - e.g. 'May 12, 2026'
+            ReleaseDate    - ISO 8601 date, e.g. '2026-05-12'
             ReleaseType    - 'Standard', 'Preview', 'Out-of-band', 'Hotpatch', or 'Hotpatch-OOB'
             ArticleUrl     - Full URL of the KB article on support.microsoft.com
 
