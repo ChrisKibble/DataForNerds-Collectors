@@ -81,6 +81,11 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "DATA_CHANGED=$(($lm -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED=$lm"
 
+      - name: Validate output against schema
+        run: |
+          pip install -q check-jsonschema
+          check-jsonschema --schemafile https://api.datafornerds.io/v2/schemas/m365-apps-update-history.schema.json output.json
+
       - name: Upload to Cloudflare R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
