@@ -62,6 +62,14 @@ function Get-WindowsUpdateHistory {
         [string]$WindowsVersion
     )
 
+    # Source URLs
+    $Win10UpdateHistoryUrl      = 'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d'
+    $Win11UpdateHistoryUrl      = 'https://aka.ms/Windows11UpdateHistory'
+    $Win11HotpatchHistoryUrl    = 'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
+    $WinServerUpdateHistoryUrl  = 'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
+    $Windows10ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/release-information'
+    $Windows11ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information'
+
     $versionsToQuery = if ($MajorVersion) { $MajorVersion | Select-Object -Unique } else { @(10, 11, 2022, 2025) }
     $allResults      = [System.Collections.Generic.List[PSCustomObject]]::new()
 
@@ -71,7 +79,7 @@ function Get-WindowsUpdateHistory {
 
     if (10 -in $versionsToQuery) {
         Write-Verbose "Fetching Windows 10 release information for version-to-build mapping"
-        $win10ReleaseResponse = Invoke-ModuleWebRequest -Uri $script:Windows10ReleaseHistoryUrl -ErrorAction SilentlyContinue
+        $win10ReleaseResponse = Invoke-ModuleWebRequest -Uri $Windows10ReleaseHistoryUrl -ErrorAction SilentlyContinue
         if ($win10ReleaseResponse) {
             $win10Releases = ConvertTo-WindowsReleaseHistoryEntries -Html $win10ReleaseResponse.Content -MajorVersion 10
             foreach ($r in $win10Releases) {
@@ -89,7 +97,7 @@ function Get-WindowsUpdateHistory {
 
     if (11 -in $versionsToQuery) {
         Write-Verbose "Fetching Windows 11 release information for version-to-build mapping"
-        $win11ReleaseResponse = Invoke-ModuleWebRequest -Uri $script:Windows11ReleaseHistoryUrl -ErrorAction SilentlyContinue
+        $win11ReleaseResponse = Invoke-ModuleWebRequest -Uri $Windows11ReleaseHistoryUrl -ErrorAction SilentlyContinue
         if ($win11ReleaseResponse) {
             $win11Releases = ConvertTo-WindowsReleaseHistoryEntries -Html $win11ReleaseResponse.Content -MajorVersion 11
             foreach ($r in $win11Releases) {
@@ -105,7 +113,7 @@ function Get-WindowsUpdateHistory {
     # --- Fetch Windows 10 updates if requested ---
     if (10 -in $versionsToQuery) {
         Write-Verbose "Fetching Windows 10 update history"
-        $win10Response = Invoke-ModuleWebRequest -Uri $script:Win10UpdateHistoryUrl -ErrorAction SilentlyContinue
+        $win10Response = Invoke-ModuleWebRequest -Uri $Win10UpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($win10Response) {
             Write-Verbose "Windows 10 page size: $($win10Response.Content.Length) bytes"
             $win10Results = ConvertTo-Win10UpdateEntries -Html $win10Response.Content `
@@ -120,7 +128,7 @@ function Get-WindowsUpdateHistory {
     # --- Fetch Windows 11 updates if requested ---
     if (11 -in $versionsToQuery) {
         Write-Verbose "Fetching Windows 11 update history"
-        $win11Response = Invoke-ModuleWebRequest -Uri $script:Win11UpdateHistoryUrl -ErrorAction SilentlyContinue
+        $win11Response = Invoke-ModuleWebRequest -Uri $Win11UpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($win11Response) {
             Write-Verbose "Windows 11 page landed on: $($win11Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri)"
             Write-Verbose "Windows 11 page size: $($win11Response.Content.Length) bytes"
@@ -133,7 +141,7 @@ function Get-WindowsUpdateHistory {
 
             # --- Fetch and merge Windows 11 hotpatch entries ---
             Write-Verbose "Fetching Windows 11 hotpatch history"
-            $hotpatchResponse = Invoke-ModuleWebRequest -Uri $script:Win11HotpatchHistoryUrl -ErrorAction SilentlyContinue
+            $hotpatchResponse = Invoke-ModuleWebRequest -Uri $Win11HotpatchHistoryUrl -ErrorAction SilentlyContinue
             if ($hotpatchResponse) {
                 Write-Verbose "Hotpatch page size: $($hotpatchResponse.Content.Length) bytes"
                 $hotpatchResults = ConvertTo-Win11HotpatchEntries -Html $hotpatchResponse.Content `
@@ -151,7 +159,7 @@ function Get-WindowsUpdateHistory {
     $serverVersionsRequested = $versionsToQuery | Where-Object { $_ -in @(2022, 2025) }
     if ($serverVersionsRequested) {
         Write-Verbose "Fetching Windows Server update history"
-        $serverResponse = Invoke-ModuleWebRequest -Uri $script:WinServerUpdateHistoryUrl -ErrorAction SilentlyContinue
+        $serverResponse = Invoke-ModuleWebRequest -Uri $WinServerUpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($serverResponse) {
             Write-Verbose "Windows Server page size: $($serverResponse.Content.Length) bytes"
             $serverResults = ConvertTo-WinServerUpdateEntries -Html $serverResponse.Content `

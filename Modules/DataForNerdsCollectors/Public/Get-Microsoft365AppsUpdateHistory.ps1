@@ -35,8 +35,10 @@ function Get-Microsoft365AppsUpdateHistory {
     [OutputType([PSCustomObject[]])]
     param ()
 
+    $Microsoft365AppsUpdateHistoryUrl = 'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'
+
     Write-Verbose 'Fetching Microsoft 365 Apps update history from Microsoft Learn'
-    $response = Invoke-ModuleWebRequest -Uri $script:Microsoft365AppsUpdateHistoryUrl -ErrorAction SilentlyContinue
+    $response = Invoke-ModuleWebRequest -Uri $Microsoft365AppsUpdateHistoryUrl -ErrorAction SilentlyContinue
 
     if (-not $response) {
         Write-Warning 'Failed to fetch Microsoft 365 Apps update history page.'

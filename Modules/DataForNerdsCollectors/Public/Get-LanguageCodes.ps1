@@ -37,8 +37,10 @@ function Get-LanguageCodes {
     [OutputType([PSCustomObject[]])]
     param ()
 
+    $LanguageCodesUrl = 'https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
+
     Write-Verbose "Fetching language codes from Microsoft Learn"
-    $response = Invoke-ModuleWebRequest -Uri $script:LanguageCodesUrl -ErrorAction SilentlyContinue
+    $response = Invoke-ModuleWebRequest -Uri $LanguageCodesUrl -ErrorAction SilentlyContinue
 
     if (-not $response) {
         Write-Warning 'Failed to fetch language codes page.'

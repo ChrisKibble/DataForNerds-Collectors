@@ -38,11 +38,14 @@ function Get-WindowsReleaseHistory {
     [OutputType([PSCustomObject[]])]
     param ()
 
+    $Windows10ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/release-information'
+    $Windows11ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information'
+
     $allResults = [System.Collections.Generic.List[PSCustomObject]]::new()
 
     # --- Windows 10 ---
     Write-Verbose "Fetching Windows 10 release information page"
-    $win10Response = Invoke-ModuleWebRequest -Uri $script:Windows10ReleaseHistoryUrl -ErrorAction SilentlyContinue
+    $win10Response = Invoke-ModuleWebRequest -Uri $Windows10ReleaseHistoryUrl -ErrorAction SilentlyContinue
     if ($win10Response) {
         Write-Verbose "Windows 10 page size: $($win10Response.Content.Length) bytes"
         $win10Entries = ConvertTo-WindowsReleaseHistoryEntries -Html $win10Response.Content -MajorVersion 10
@@ -54,7 +57,7 @@ function Get-WindowsReleaseHistory {
 
     # --- Windows 11 ---
     Write-Verbose "Fetching Windows 11 release information page"
-    $win11Response = Invoke-ModuleWebRequest -Uri $script:Windows11ReleaseHistoryUrl -ErrorAction SilentlyContinue
+    $win11Response = Invoke-ModuleWebRequest -Uri $Windows11ReleaseHistoryUrl -ErrorAction SilentlyContinue
     if ($win11Response) {
         Write-Verbose "Windows 11 page size: $($win11Response.Content.Length) bytes"
         $win11Entries = ConvertTo-WindowsReleaseHistoryEntries -Html $win11Response.Content -MajorVersion 11
