@@ -65,6 +65,43 @@ function Get-WindowsUpdateHistory {
     $versionsToQuery = if ($MajorVersion) { $MajorVersion | Select-Object -Unique } else { @(10, 11, 2022, 2025) }
     $allResults      = [System.Collections.Generic.List[PSCustomObject]]::new()
 
+    # --- Build version-to-base-build maps for filtering cross-version builds ---
+    $win10BuildMap = @{}
+    $win11BuildMap = @{}
+
+    if (10 -in $versionsToQuery) {
+        Write-Verbose "Fetching Windows 10 release information for version-to-build mapping"
+        $win10ReleaseResponse = Invoke-ModuleWebRequest -Uri $script:Windows10ReleaseHistoryUrl -ErrorAction SilentlyContinue
+        if ($win10ReleaseResponse) {
+            $win10Releases = ConvertTo-WindowsReleaseHistoryEntries -Html $win10ReleaseResponse.Content -MajorVersion 10
+            foreach ($r in $win10Releases) {
+                $win10BuildMap[$r.WindowsVersion.ToUpper()] = $r.OSBuild
+            }
+            if ($win10BuildMap.ContainsKey('1507') -and -not $win10BuildMap.ContainsKey('RTM')) {
+                $win10BuildMap['RTM'] = $win10BuildMap['1507']
+            }
+            Write-Verbose "Win10 build map: $($win10BuildMap.Count) version(s)"
+        }
+        else {
+            Write-Warning 'Could not fetch Windows 10 release info; build filtering disabled for Win10'
+        }
+    }
+
+    if (11 -in $versionsToQuery) {
+        Write-Verbose "Fetching Windows 11 release information for version-to-build mapping"
+        $win11ReleaseResponse = Invoke-ModuleWebRequest -Uri $script:Windows11ReleaseHistoryUrl -ErrorAction SilentlyContinue
+        if ($win11ReleaseResponse) {
+            $win11Releases = ConvertTo-WindowsReleaseHistoryEntries -Html $win11ReleaseResponse.Content -MajorVersion 11
+            foreach ($r in $win11Releases) {
+                $win11BuildMap[$r.WindowsVersion.ToUpper()] = $r.OSBuild
+            }
+            Write-Verbose "Win11 build map: $($win11BuildMap.Count) version(s)"
+        }
+        else {
+            Write-Warning 'Could not fetch Windows 11 release info; build filtering disabled for Win11'
+        }
+    }
+
     # --- Fetch Windows 10 updates if requested ---
     if (10 -in $versionsToQuery) {
         Write-Verbose "Fetching Windows 10 update history"
@@ -72,7 +109,8 @@ function Get-WindowsUpdateHistory {
         if ($win10Response) {
             Write-Verbose "Windows 10 page size: $($win10Response.Content.Length) bytes"
             $win10Results = ConvertTo-Win10UpdateEntries -Html $win10Response.Content `
-                                                        -WindowsVersion $WindowsVersion
+                                                        -WindowsVersion $WindowsVersion `
+                                                        -VersionBuildMap $win10BuildMap
             foreach ($result in $win10Results) {
                 $allResults.Add($result)
             }
@@ -87,7 +125,8 @@ function Get-WindowsUpdateHistory {
             Write-Verbose "Windows 11 page landed on: $($win11Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri)"
             Write-Verbose "Windows 11 page size: $($win11Response.Content.Length) bytes"
             $win11Results = ConvertTo-Win11UpdateEntries -Html $win11Response.Content `
-                                                        -WindowsVersion $WindowsVersion
+                                                        -WindowsVersion $WindowsVersion `
+                                                        -VersionBuildMap $win11BuildMap
             foreach ($result in $win11Results) {
                 $allResults.Add($result)
             }
@@ -98,7 +137,8 @@ function Get-WindowsUpdateHistory {
             if ($hotpatchResponse) {
                 Write-Verbose "Hotpatch page size: $($hotpatchResponse.Content.Length) bytes"
                 $hotpatchResults = ConvertTo-Win11HotpatchEntries -Html $hotpatchResponse.Content `
-                                                                  -WindowsVersion $WindowsVersion
+                                                                  -WindowsVersion $WindowsVersion `
+                                                                  -VersionBuildMap $win11BuildMap
                 foreach ($result in $hotpatchResults) {
                     $allResults.Add($result)
                 }
