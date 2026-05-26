@@ -45,6 +45,10 @@ jobs:
           fetch_baseline v2/windows-10-update-history.json current-win10.json
           fetch_baseline v2/windows-11-update-history.json current-win11.json
           fetch_baseline v2/windows-server-2022-update-history.json current-server2022.json
+          fetch_baseline v2/windows-update-history.changelog.json changelog-current-all.json
+          fetch_baseline v2/windows-10-update-history.changelog.json changelog-current-win10.json
+          fetch_baseline v2/windows-11-update-history.changelog.json changelog-current-win11.json
+          fetch_baseline v2/windows-server-2022-update-history.changelog.json changelog-current-server2022.json
 
       - name: Run Get-WindowsUpdateHistory
         shell: pwsh
@@ -131,6 +135,31 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN11=$lmWin11"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_SERVER2022=$lmServer2022"
 
+          # --- Changelogs ---
+          $keyFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild')
+          $changelogSets = @(
+              @{ Data = $results;     Lm = $lmAll;         Current = 'current-all.json';        Changelog = 'changelog-current-all.json';        Output = 'changelog-output-all.json';        Dataset = 'windows-update-history' },
+              @{ Data = $win10;       Lm = $lmWin10;       Current = 'current-win10.json';      Changelog = 'changelog-current-win10.json';      Output = 'changelog-output-win10.json';      Dataset = 'windows-10-update-history' },
+              @{ Data = $win11;       Lm = $lmWin11;       Current = 'current-win11.json';      Changelog = 'changelog-current-win11.json';      Output = 'changelog-output-win11.json';      Dataset = 'windows-11-update-history' },
+              @{ Data = $server2022;  Lm = $lmServer2022;  Current = 'current-server2022.json';  Changelog = 'changelog-current-server2022.json';  Output = 'changelog-output-server2022.json';  Dataset = 'windows-server-2022-update-history' }
+          )
+          foreach ($set in $changelogSets) {
+              if ($set.Lm -eq $now -and (Test-Path "$ws/$($set.Current)")) {
+                  $currentData = Get-Content "$ws/$($set.Current)" -Raw | ConvertFrom-Json
+                  $changes = Compare-DataRecords -OldData $currentData.data -NewData $set.Data -KeyFields $keyFields
+                  if (@($changes.added).Count -gt 0 -or @($changes.removed).Count -gt 0 -or @($changes.modified).Count -gt 0) {
+                      $entry = New-ChangelogEntry -Changes $changes -Timestamp $now
+                      $existingChangelog = $null
+                      if (Test-Path "$ws/$($set.Changelog)") {
+                          $existingChangelog = Get-Content "$ws/$($set.Changelog)" -Raw | ConvertFrom-Json
+                      }
+                      $changelog = Update-Changelog -ExistingChangelog $existingChangelog -NewEntry $entry -Dataset $set.Dataset
+                      $changelog | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/$($set.Output)" -Encoding utf8
+                      Write-Host "$($set.Dataset) changelog: $(@($changes.added).Count) added, $(@($changes.removed).Count) removed, $(@($changes.modified).Count) modified"
+                  }
+              }
+          }
+
       - name: Validate output against schema
         run: |
           pip install -q check-jsonschema
@@ -162,6 +191,23 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler@4 r2 object put dfn-collectors/v2/windows-server-2022-update-history.json --file=output-server2022.json --content-type=application/json --remote
+
+      - name: Upload changelogs to R2
+        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true' || env.SERVER2022_CHANGED == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          upload_changelog() {
+            local file=$1 key=$2
+            if [ -f "$file" ]; then
+              npx wrangler@4 r2 object put "dfn-collectors/$key" --file="$file" --content-type=application/json --remote
+            fi
+          }
+          upload_changelog changelog-output-all.json v2/windows-update-history.changelog.json
+          upload_changelog changelog-output-win10.json v2/windows-10-update-history.changelog.json
+          upload_changelog changelog-output-win11.json v2/windows-11-update-history.changelog.json
+          upload_changelog changelog-output-server2022.json v2/windows-server-2022-update-history.changelog.json
 
       - name: Update index.json in R2
         env:
