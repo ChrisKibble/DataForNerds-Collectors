@@ -52,6 +52,9 @@ jobs:
 
       - name: Run Get-WindowsUpdateHistory
         shell: pwsh
+        env:
+          DFN_BOT_NAME: ${{ secrets.DFN_BOT_NAME }}
+          DFN_BOT_INFO: ${{ secrets.DFN_BOT_INFO }}
         run: |
           $ErrorActionPreference = 'Stop'
 

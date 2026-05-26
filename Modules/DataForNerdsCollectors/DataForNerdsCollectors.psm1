@@ -32,14 +32,17 @@ $script:Windows10ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/
 # Windows 11 client release information - version-to-base-build mapping
 $script:Windows11ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information'
 
-# Headers that prevent Microsoft's CDN from returning a captcha or reduced-content page
+# Headers that prevent Microsoft's CDN from returning a captcha or reduced-content page.
+# Optional bot identification headers are added when DFN_BOT_NAME / DFN_BOT_INFO
+# environment variables are set (configured via GitHub Secrets in CI).
 $script:DefaultHeaders = @{
     'User-Agent'      = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
     'Accept'          = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
     'Accept-Language' = 'en-US,en;q=0.9'
-    'X-Bot-Name'      = 'DataForNerds'
-    'X-Bot-Info'      = 'https://www.datafornerds.io/'
 }
+
+if ($env:DFN_BOT_NAME) { $script:DefaultHeaders['X-Bot-Name'] = $env:DFN_BOT_NAME }
+if ($env:DFN_BOT_INFO) { $script:DefaultHeaders['X-Bot-Info'] = $env:DFN_BOT_INFO }
 
 # ---------------------------------------------------------------------------
 # Dot-source private helpers (must load before public functions)
