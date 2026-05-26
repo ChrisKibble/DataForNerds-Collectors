@@ -68,7 +68,7 @@ jobs:
           Write-Host "Returned $($results.Count) record(s)."
 
           # --- Validation ---
-          $requiredFields = @('ReleaseDate','ChannelName','Version','Build')
+          $requiredFields = @('ReleaseDate','ChannelName','Version','Build','FullBuild')
           for ($i = 0; $i -lt $results.Count; $i++) {
               $missing = $requiredFields | Where-Object { $_ -notin $results[$i].PSObject.Properties.Name }
               if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }

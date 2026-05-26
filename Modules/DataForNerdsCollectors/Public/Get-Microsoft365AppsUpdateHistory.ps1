@@ -14,6 +14,7 @@ function Get-Microsoft365AppsUpdateHistory {
                           'Semi-Annual Enterprise Channel'
             Version     - e.g. '2604'
             Build       - e.g. '19929.20172'
+            FullBuild   - e.g. '16.0.19929.20172'
 
     .EXAMPLE
         Get-Microsoft365AppsUpdateHistory | ConvertTo-Json -Depth 3
@@ -28,7 +29,7 @@ function Get-Microsoft365AppsUpdateHistory {
     .OUTPUTS
         PSCustomObject[]
         Each object has: ReleaseDate (String, ISO date), ChannelName (String),
-        Version (String), Build (String).
+        Version (String), Build (String), FullBuild (String).
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
