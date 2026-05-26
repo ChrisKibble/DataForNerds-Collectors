@@ -25,19 +25,24 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          set +e
-          OUTPUT=$(npx wrangler@4 r2 object get dfn-collectors/v2/windows-release-history.json --file=current.json --remote 2>&1)
-          RC=$?
-          set -e
-          if [ $RC -ne 0 ]; then
-            if echo "$OUTPUT" | grep -qiE "(not found|does not exist|NoSuchKey|10007)"; then
-              echo "Object not found in R2 (first run) — continuing without baseline."
-            else
-              echo "::error::R2 fetch failed unexpectedly:"
-              echo "$OUTPUT"
-              exit 1
+          fetch_r2() {
+            local key=$1 file=$2 label=$3
+            set +e
+            OUTPUT=$(npx wrangler@4 r2 object get "dfn-collectors/$key" --file="$file" --remote 2>&1)
+            RC=$?
+            set -e
+            if [ $RC -ne 0 ]; then
+              if echo "$OUTPUT" | grep -qiE "(not found|does not exist|NoSuchKey|10007)"; then
+                echo "$label not found in R2 (first run) — continuing without baseline."
+              else
+                echo "::error::R2 fetch failed unexpectedly for $label:"
+                echo "$OUTPUT"
+                exit 1
+              fi
             fi
-          fi
+          }
+          fetch_r2 v2/windows-release-history.json current.json "Data file"
+          fetch_r2 v2/windows-release-history.changelog.json changelog-current.json "Changelog"
 
       - name: Run Get-WindowsReleaseHistory
         shell: pwsh
@@ -82,6 +87,22 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "DATA_CHANGED=$(($lm -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED=$lm"
 
+          # --- Changelog ---
+          if ($lm -eq $now -and (Test-Path "$ws/current.json")) {
+              $current = Get-Content "$ws/current.json" -Raw | ConvertFrom-Json
+              $changes = Compare-DataRecords -OldData $current.data -NewData $results -KeyFields @('MajorVersion','WindowsVersion','OSBuild')
+              if (@($changes.added).Count -gt 0 -or @($changes.removed).Count -gt 0 -or @($changes.modified).Count -gt 0) {
+                  $entry = New-ChangelogEntry -Changes $changes -Timestamp $now
+                  $existingChangelog = $null
+                  if (Test-Path "$ws/changelog-current.json") {
+                      $existingChangelog = Get-Content "$ws/changelog-current.json" -Raw | ConvertFrom-Json
+                  }
+                  $changelog = Update-Changelog -ExistingChangelog $existingChangelog -NewEntry $entry -Dataset 'windows-release-history'
+                  $changelog | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/changelog-output.json" -Encoding utf8
+                  Write-Host "Changelog: $(@($changes.added).Count) added, $(@($changes.removed).Count) removed, $(@($changes.modified).Count) modified"
+              }
+          }
+
       - name: Validate output against schema
         run: |
           pip install -q check-jsonschema
@@ -92,6 +113,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler@4 r2 object put dfn-collectors/v2/windows-release-history.json --file=output.json --content-type=application/json --remote
+
+      - name: Upload changelog to R2
+        if: env.DATA_CHANGED == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -f changelog-output.json ]; then
+            npx wrangler@4 r2 object put dfn-collectors/v2/windows-release-history.changelog.json --file=changelog-output.json --content-type=application/json --remote
+          fi
 
       - name: Update index.json in R2
         env:
