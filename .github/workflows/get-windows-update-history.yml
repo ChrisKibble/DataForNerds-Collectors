@@ -44,11 +44,11 @@ jobs:
           fetch_baseline v2/microsoft/windows-update-history.json current-all.json
           fetch_baseline v2/microsoft/windows-10-update-history.json current-win10.json
           fetch_baseline v2/microsoft/windows-11-update-history.json current-win11.json
-          fetch_baseline v2/microsoft/windows-server-2022-update-history.json current-server2022.json
+          fetch_baseline v2/microsoft/windows-server-update-history.json current-server.json
           fetch_baseline v2/microsoft/windows-update-history.changelog.json changelog-current-all.json
           fetch_baseline v2/microsoft/windows-10-update-history.changelog.json changelog-current-win10.json
           fetch_baseline v2/microsoft/windows-11-update-history.changelog.json changelog-current-win11.json
-          fetch_baseline v2/microsoft/windows-server-2022-update-history.changelog.json changelog-current-server2022.json
+          fetch_baseline v2/microsoft/windows-server-update-history.changelog.json changelog-current-server.json
 
       - name: Run Get-WindowsUpdateHistory
         shell: pwsh
@@ -73,8 +73,8 @@ jobs:
           }
           $win10      = $results | Where-Object { $_.MajorVersion -eq 10 }
           $win11      = $results | Where-Object { $_.MajorVersion -eq 11 }
-          $server2022 = $results | Where-Object { $_.OSType -eq 'Server' -and $_.MajorVersion -eq 2022 }
-          Write-Host "Returned $($results.Count) total record(s): $($win10.Count) Win10, $($win11.Count) Win11, $($server2022.Count) Server2022."
+          $server = $results | Where-Object { $_.OSType -eq 'Server' }
+          Write-Host "Returned $($results.Count) total record(s): $($win10.Count) Win10, $($win11.Count) Win11, $($server.Count) Server."
 
           # --- Validation ---
           $requiredFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild','FullVersion','ReleaseDate','ReleaseType','IsExpired','ArticleUrl')
@@ -88,8 +88,8 @@ jobs:
           if ($win10.Count     -gt 3000) { throw "Expected at most 3000 Win10 records, got $($win10.Count)" }
           if ($win11.Count     -lt   50) { throw "Expected at least 50 Win11 records, got $($win11.Count)" }
           if ($win11.Count     -gt 2000) { throw "Expected at most 2000 Win11 records, got $($win11.Count)" }
-          if ($server2022.Count -lt   50) { throw "Expected at least 50 Server2022 records, got $($server2022.Count)" }
-          if ($server2022.Count -gt  500) { throw "Expected at most 500 Server2022 records, got $($server2022.Count)" }
+          if ($server.Count -lt   50) { throw "Expected at least 50 Server records, got $($server.Count)" }
+          if ($server.Count -gt 2000) { throw "Expected at most 2000 Server records, got $($server.Count)" }
           Write-Host "Validation passed."
 
           $ws = $env:GITHUB_WORKSPACE
@@ -119,21 +119,21 @@ jobs:
               'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
           ) $win11 $lmWin11 $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win11.json" -Encoding utf8
 
-          # Windows Server 2022 only
-          $lmServer2022 = Get-LastModified $server2022 "$ws/current-server2022.json" $now
-          Write-Host "windows-server-2022-update-history lastModified: $lmServer2022"
-          New-Envelope 'windows-server-2022-update-history' @(
+          # Windows Server only
+          $lmServer = Get-LastModified $server "$ws/current-server.json" $now
+          Write-Host "windows-server-update-history     lastModified: $lmServer"
+          New-Envelope 'windows-server-update-history' @(
               'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
-          ) $server2022 $lmServer2022 $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-server2022.json" -Encoding utf8
+          ) $server $lmServer $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-server.json" -Encoding utf8
 
           Add-Content -Path $env:GITHUB_ENV -Value "ALL_CHANGED=$(($lmAll -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "WIN10_CHANGED=$(($lmWin10 -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "WIN11_CHANGED=$(($lmWin11 -eq $now).ToString().ToLower())"
-          Add-Content -Path $env:GITHUB_ENV -Value "SERVER2022_CHANGED=$(($lmServer2022 -eq $now).ToString().ToLower())"
+          Add-Content -Path $env:GITHUB_ENV -Value "SERVER_CHANGED=$(($lmServer -eq $now).ToString().ToLower())"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_ALL=$lmAll"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN10=$lmWin10"
           Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN11=$lmWin11"
-          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_SERVER2022=$lmServer2022"
+          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_SERVER=$lmServer"
 
           # --- Changelogs ---
           $keyFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild')
@@ -141,7 +141,7 @@ jobs:
               @{ Data = $results;     Lm = $lmAll;         Current = 'current-all.json';        Changelog = 'changelog-current-all.json';        Output = 'changelog-output-all.json';        Dataset = 'windows-update-history' },
               @{ Data = $win10;       Lm = $lmWin10;       Current = 'current-win10.json';      Changelog = 'changelog-current-win10.json';      Output = 'changelog-output-win10.json';      Dataset = 'windows-10-update-history' },
               @{ Data = $win11;       Lm = $lmWin11;       Current = 'current-win11.json';      Changelog = 'changelog-current-win11.json';      Output = 'changelog-output-win11.json';      Dataset = 'windows-11-update-history' },
-              @{ Data = $server2022;  Lm = $lmServer2022;  Current = 'current-server2022.json';  Changelog = 'changelog-current-server2022.json';  Output = 'changelog-output-server2022.json';  Dataset = 'windows-server-2022-update-history' }
+              @{ Data = $server;      Lm = $lmServer;      Current = 'current-server.json';      Changelog = 'changelog-current-server.json';      Output = 'changelog-output-server.json';      Dataset = 'windows-server-update-history' }
           )
           foreach ($set in $changelogSets) {
               if ($set.Lm -eq $now -and (Test-Path "$ws/$($set.Current)")) {
@@ -166,7 +166,7 @@ jobs:
           check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-update-history.schema.json output-all.json
           check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-10-update-history.schema.json output-win10.json
           check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-11-update-history.schema.json output-win11.json
-          check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-server-2022-update-history.schema.json output-server2022.json
+          check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-server-update-history.schema.json output-server.json
 
       - name: Upload windows-update-history.json to R2
         env:
@@ -186,14 +186,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/windows-11-update-history.json --file=output-win11.json --content-type=application/json --remote
 
-      - name: Upload windows-server-2022-update-history.json to R2
+      - name: Upload windows-server-update-history.json to R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/windows-server-2022-update-history.json --file=output-server2022.json --content-type=application/json --remote
+        run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/windows-server-update-history.json --file=output-server.json --content-type=application/json --remote
 
       - name: Upload changelogs to R2
-        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true' || env.SERVER2022_CHANGED == 'true'
+        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true' || env.SERVER_CHANGED == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -207,7 +207,7 @@ jobs:
           upload_changelog changelog-output-all.json v2/microsoft/windows-update-history.changelog.json
           upload_changelog changelog-output-win10.json v2/microsoft/windows-10-update-history.changelog.json
           upload_changelog changelog-output-win11.json v2/microsoft/windows-11-update-history.changelog.json
-          upload_changelog changelog-output-server2022.json v2/microsoft/windows-server-2022-update-history.changelog.json
+          upload_changelog changelog-output-server.json v2/microsoft/windows-server-update-history.changelog.json
 
       - name: Update index.json in R2
         env:
@@ -233,25 +233,25 @@ jobs:
           LAST_MODIFIED_ALL=$(jq -r '.metadata.lastModified' output-all.json)
           LAST_MODIFIED_WIN10=$(jq -r '.metadata.lastModified' output-win10.json)
           LAST_MODIFIED_WIN11=$(jq -r '.metadata.lastModified' output-win11.json)
-          LAST_MODIFIED_SERVER2022=$(jq -r '.metadata.lastModified' output-server2022.json)
+          LAST_MODIFIED_SERVER=$(jq -r '.metadata.lastModified' output-server.json)
           OLD_LM_ALL=$(jq -r '.datasets[] | select(.name == "windows-update-history") | .lastModified // "null"' index-current.json)
           OLD_LM_WIN10=$(jq -r '.datasets[] | select(.name == "windows-10-update-history") | .lastModified // "null"' index-current.json)
           OLD_LM_WIN11=$(jq -r '.datasets[] | select(.name == "windows-11-update-history") | .lastModified // "null"' index-current.json)
-          OLD_LM_SERVER2022=$(jq -r '.datasets[] | select(.name == "windows-server-2022-update-history") | .lastModified // "null"' index-current.json)
+          OLD_LM_SERVER=$(jq -r '.datasets[] | select(.name == "windows-server-update-history") | .lastModified // "null"' index-current.json)
           jq \
             --arg all      "$LAST_MODIFIED_ALL" \
             --arg win10    "$LAST_MODIFIED_WIN10" \
             --arg win11    "$LAST_MODIFIED_WIN11" \
-            --arg server22 "$LAST_MODIFIED_SERVER2022" \
+            --arg server   "$LAST_MODIFIED_SERVER" \
             '.datasets |= map(
               if   .name == "windows-update-history"             then .lastModified = $all
               elif .name == "windows-10-update-history"          then .lastModified = $win10
               elif .name == "windows-11-update-history"          then .lastModified = $win11
-              elif .name == "windows-server-2022-update-history" then .lastModified = $server22
+              elif .name == "windows-server-update-history"      then .lastModified = $server
               else . end)' \
             index-current.json > index-updated.json
           npx wrangler@4 r2 object put dfn-collectors/v2/index.json --file=index-updated.json --content-type=application/json --remote
-          if [ "$OLD_LM_ALL" != "$LAST_MODIFIED_ALL" ] || [ "$OLD_LM_WIN10" != "$LAST_MODIFIED_WIN10" ] || [ "$OLD_LM_WIN11" != "$LAST_MODIFIED_WIN11" ] || [ "$OLD_LM_SERVER2022" != "$LAST_MODIFIED_SERVER2022" ]; then
+          if [ "$OLD_LM_ALL" != "$LAST_MODIFIED_ALL" ] || [ "$OLD_LM_WIN10" != "$LAST_MODIFIED_WIN10" ] || [ "$OLD_LM_WIN11" != "$LAST_MODIFIED_WIN11" ] || [ "$OLD_LM_SERVER" != "$LAST_MODIFIED_SERVER" ]; then
             curl -fsSL -X POST \
               "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
               -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
@@ -261,7 +261,7 @@ jobs:
           fi
 
       - name: Purge Cloudflare cache for changed datasets
-        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true' || env.SERVER2022_CHANGED == 'true'
+        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true' || env.SERVER_CHANGED == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
@@ -271,7 +271,7 @@ jobs:
           [ "$ALL_CHANGED"       = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-update-history.json")
           [ "$WIN10_CHANGED"     = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-10-update-history.json")
           [ "$WIN11_CHANGED"     = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-11-update-history.json")
-          [ "$SERVER2022_CHANGED" = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-server-2022-update-history.json")
+          [ "$SERVER_CHANGED"    = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-server-update-history.json")
           printf '%s\n' "${files[@]}" | jq -R . | jq -sc '{files:.}' | \
             curl -fsSL -X POST \
               "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \

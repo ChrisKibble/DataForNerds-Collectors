@@ -13,7 +13,7 @@ function Get-WindowsReleaseHistory {
             MajorVersion   - 10 or 11
             WindowsVersion - e.g. '24H2', '22H2', '1809', or '1507' (initial Windows 10 release)
             OSBuild        - Base OS build, e.g. '26100' (no patch suffix)
-            FullVersion    - '{MajorVersion}.0.{OSBuild}' form, e.g. '10.0.19045', '11.0.26100'
+            FullVersion    - '10.0.{OSBuild}' form, e.g. '10.0.19045', '10.0.26100'
 
         Use Get-WindowsUpdateHistory when you need the full per-update detail
         (KB number, patched build, release date, etc.); this function returns only the
