@@ -164,6 +164,24 @@ function Get-WindowsUpdateHistory {
         }
     }
 
+    # --- Normalize IsExpired: if any entry for a KB is expired, all entries for that KB are expired ---
+    $expiredKBs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in $allResults) {
+        if ($entry.IsExpired) { [void]$expiredKBs.Add($entry.KBNumber) }
+    }
+    if ($expiredKBs.Count -gt 0) {
+        $promoted = 0
+        foreach ($entry in $allResults) {
+            if (-not $entry.IsExpired -and $expiredKBs.Contains($entry.KBNumber)) {
+                $entry.IsExpired = $true
+                $promoted++
+            }
+        }
+        if ($promoted -gt 0) {
+            Write-Verbose "Promoted IsExpired to true on $promoted entries based on KB-level normalization"
+        }
+    }
+
     if ($allResults.Count -eq 0) {
         Write-Warning 'No update entries were found. The page structure may have changed.'
     }
