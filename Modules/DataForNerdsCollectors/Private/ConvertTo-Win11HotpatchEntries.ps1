@@ -13,7 +13,10 @@ function ConvertTo-Win11HotpatchEntries {
         [string]$Html,
 
         [Parameter()]
-        [string]$WindowsVersion
+        [string]$WindowsVersion,
+
+        [Parameter()]
+        [hashtable]$VersionBuildMap
     )
 
     $results        = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -86,6 +89,26 @@ function ConvertTo-Win11HotpatchEntries {
         $osBuilds.Add($entryMatch.Groups['build1'].Value)
         if ($entryMatch.Groups['build2'].Success -and $entryMatch.Groups['build2'].Value.Trim()) {
             $osBuilds.Add($entryMatch.Groups['build2'].Value.Trim())
+        }
+
+        # Filter to only the build belonging to this version section
+        if ($VersionBuildMap -and $VersionBuildMap.ContainsKey($currentVersion)) {
+            $expectedBase = $VersionBuildMap[$currentVersion]
+            $matched = [System.Collections.Generic.List[string]]::new()
+            foreach ($b in $osBuilds) {
+                if (($b -split '\.')[0] -eq $expectedBase) {
+                    $matched.Add($b)
+                }
+                else {
+                    Write-Verbose "Filtered build $b from $($entryMatch.Groups['kb'].Value) in section $currentVersion (expected base $expectedBase)"
+                }
+            }
+            if ($matched.Count -gt 0) {
+                $osBuilds = $matched
+            }
+            else {
+                Write-Verbose "No builds in $($entryMatch.Groups['kb'].Value) matched base $expectedBase for $currentVersion; keeping all builds"
+            }
         }
 
         $releaseDate = [DateTime]::ParseExact(

@@ -14,7 +14,10 @@ function ConvertTo-Win10UpdateEntries {
         [string]$Html,
 
         [Parameter()]
-        [string]$WindowsVersion
+        [string]$WindowsVersion,
+
+        [Parameter()]
+        [hashtable]$VersionBuildMap
     )
 
     $results        = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -91,6 +94,23 @@ function ConvertTo-Win10UpdateEntries {
         $osBuilds = ($buildStr -split '(?:,\s*(?:and\s+)?|\s+and\s+)') |
                     ForEach-Object { $_.Trim() } |
                     Where-Object   { $_ -match '^\d' }
+
+        # Filter to only the build belonging to this version section
+        if ($VersionBuildMap -and $VersionBuildMap.ContainsKey($currentVersion)) {
+            $expectedBase = $VersionBuildMap[$currentVersion]
+            $matched = @($osBuilds | Where-Object { ($_ -split '\.')[0] -eq $expectedBase })
+            if ($matched.Count -gt 0) {
+                foreach ($d in $osBuilds) {
+                    if (($d -split '\.')[0] -ne $expectedBase) {
+                        Write-Verbose "Filtered build $d from $kbNumber in section $currentVersion (expected base $expectedBase)"
+                    }
+                }
+                $osBuilds = $matched
+            }
+            else {
+                Write-Verbose "No builds in $kbNumber matched base $expectedBase for $currentVersion; keeping all builds"
+            }
+        }
 
         $releaseDate = [DateTime]::ParseExact(
             $entryMatch.Groups['date'].Value.Trim(),
