@@ -8,6 +8,7 @@ on:
 jobs:
   run-collector:
     name: Run Get-WindowsReleaseHistory
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
