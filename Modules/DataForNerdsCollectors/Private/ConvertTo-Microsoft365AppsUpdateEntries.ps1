@@ -92,11 +92,13 @@ function ConvertTo-Microsoft365AppsUpdateEntries {
             $cellText  = $cells[$channelIdxs[$channelName]].Groups[1].Value -replace '<[^>]+>', ''
             $vbMatches = [regex]::Matches($cellText, 'Version\s+(\d+)\s+\(Build\s+([\d.]+)\)')
             foreach ($m in $vbMatches) {
+                $build = $m.Groups[2].Value
                 $results.Add([PSCustomObject]@{
                     ReleaseDate = $isoDate
                     ChannelName = $channelName
                     Version     = $m.Groups[1].Value
-                    Build       = $m.Groups[2].Value
+                    Build       = $build
+                    FullBuild   = "16.0.$build"
                 })
             }
         }
