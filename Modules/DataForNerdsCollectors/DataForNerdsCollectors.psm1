@@ -38,4 +38,4 @@ Get-ChildItem -Path "$PSScriptRoot\Public\*.ps1" -ErrorAction SilentlyContinue |
 # Export public functions
 # ---------------------------------------------------------------------------
 
-Export-ModuleMember -Function 'Get-WindowsUpdateHistory', 'Get-LanguageCodes', 'Get-Microsoft365AppsUpdateHistory', 'Get-WindowsReleaseHistory'
+Export-ModuleMember -Function 'Get-WindowsUpdateHistory', 'Get-LanguageCodes', 'Get-Microsoft365AppsUpdateHistory', 'Get-WindowsReleaseHistory', 'Get-ChassisTypes'

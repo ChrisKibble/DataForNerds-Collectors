@@ -4,7 +4,7 @@
 
 @{
     RootModule        = 'DataForNerdsCollectors.psm1'
-    ModuleVersion     = '1.1.0'
+    ModuleVersion     = '1.2.1'
     GUID              = 'a9c3f5e7-2d6b-4a8f-c1e9-7f3b5d8a1c6e'
 
     Author            = 'Data For Nerds'
@@ -14,7 +14,7 @@
 
     PowerShellVersion = '7.4'
 
-    FunctionsToExport = @('Get-WindowsUpdateHistory', 'Get-LanguageCodes', 'Get-Microsoft365AppsUpdateHistory', 'Get-WindowsReleaseHistory')
+    FunctionsToExport = @('Get-WindowsUpdateHistory', 'Get-LanguageCodes', 'Get-Microsoft365AppsUpdateHistory', 'Get-WindowsReleaseHistory', 'Get-ChassisTypes')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @()
@@ -25,6 +25,11 @@
             LicenseUri   = ''
             ProjectUri   = ''
             ReleaseNotes = '
+1.2.0 - Add Get-ChassisTypes collector.
+  - New public function Get-ChassisTypes scrapes the SMBIOS chassis type
+    enumeration from the Win32_SystemEnclosure documentation on Microsoft Learn.
+  - New private parser ConvertTo-ChassisTypeEntries; returns ID (Int) and Type (String).
+
 1.0.11 - Add IsExpired boolean field to Get-WindowsUpdateHistory.
   - Detects EXPIRED markers in Microsoft''s update history page HTML.
 
