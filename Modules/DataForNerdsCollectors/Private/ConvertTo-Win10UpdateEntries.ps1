@@ -4,7 +4,7 @@ function ConvertTo-Win10UpdateEntries {
         Parses Windows 10 update entries from the page HTML.
 
     .DESCRIPTION
-        Walks the supLeftNavLink anchors and produces update objects. Handles the RTM
+        Walks the learnRenderLeftNavLink anchors and produces update objects. Handles the RTM
         initial-version header (which uses &#xA0; entities), normalizes KB numbers with
         embedded spaces, and parses 1-3 simultaneous OS builds per entry.
     #>
@@ -24,7 +24,7 @@ function ConvertTo-Win10UpdateEntries {
     $currentVersion = $null
     $seen           = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    $anchorPattern       = '<a\s([^>]*class="supLeftNavLink"[^>]*)>([^<]+)</a>'
+    $anchorPattern       = '<a\s([^>]*class="learnRenderLeftNavLink"[^>]*)>([^<]+)</a>'
     $anchors             = [regex]::Matches($Html, $anchorPattern)
     $initialVersionPattern = '(?i)Windows[\s &#;xA0]+10[\s &#;xA0]+\(initial\s+version'
     $versionHeaderPattern  = '(?i)Windows\s+10,\s+version\s+(\w+)'
@@ -43,7 +43,7 @@ function ConvertTo-Win10UpdateEntries {
         '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
-    Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (Win10)"
+    Write-Verbose "Found $($anchors.Count) learnRenderLeftNavLink anchors (Win10)"
 
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value

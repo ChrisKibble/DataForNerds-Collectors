@@ -4,7 +4,7 @@ function ConvertTo-WinServerUpdateEntries {
         Parses Windows Server update entries from the server update history page.
 
     .DESCRIPTION
-        Walks the supLeftNavLink anchors and produces update objects for all server
+        Walks the learnRenderLeftNavLink anchors and produces update objects for all server
         versions on the page (Windows Server 2022, Windows Server version 23H2,
         Windows Server 2025). Sets OSType to 'Server' and derives MajorVersion from
         the product year (2022 or 2025). The Annual Channel release
@@ -24,7 +24,7 @@ function ConvertTo-WinServerUpdateEntries {
     $currentMajor   = $null
     $seen           = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    $anchorPattern = '<a\s([^>]*class="supLeftNavLink"[^>]*)>([^<]+)</a>'
+    $anchorPattern = '<a\s([^>]*class="learnRenderLeftNavLink"[^>]*)>([^<]+)</a>'
     $anchors       = [regex]::Matches($Html, $anchorPattern)
 
     # "Windows Server, version 23H2" — Annual Channel; treated as Server 2022
@@ -45,7 +45,7 @@ function ConvertTo-WinServerUpdateEntries {
         '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
-    Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (WinServer)"
+    Write-Verbose "Found $($anchors.Count) learnRenderLeftNavLink anchors (WinServer)"
 
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value
