@@ -23,7 +23,7 @@ function ConvertTo-Win11HotpatchEntries {
     $currentVersion = $null
     $seen           = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    $anchorPattern          = '<a\s([^>]*class="supLeftNavLink"[^>]*)>([^<]+)</a>'
+    $anchorPattern          = '<a\s([^>]*class="learnRenderLeftNavLink"[^>]*)>([^<]+)</a>'
     $anchors                = [regex]::Matches($Html, $anchorPattern)
     $anySectionHeaderPattern = '(?i)Hotpatch on Windows'
     $win11HeaderPattern      = '(?i)Hotpatch on Windows\s+11\s+Enterprise[,\s]+version\s+(\w+)'
@@ -42,7 +42,7 @@ function ConvertTo-Win11HotpatchEntries {
         '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
-    Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (Win11 hotpatch)"
+    Write-Verbose "Found $($anchors.Count) learnRenderLeftNavLink anchors (Win11 hotpatch)"
 
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value

@@ -4,7 +4,7 @@ function ConvertTo-Win11UpdateEntries {
         Parses Windows 11 update entries from the page HTML.
 
     .DESCRIPTION
-        Walks the supLeftNavLink anchors and produces update objects. Handles version
+        Walks the learnRenderLeftNavLink anchors and produces update objects. Handles version
         filtering and 1-2 simultaneous OS builds per entry.
     #>
     [CmdletBinding()]
@@ -23,7 +23,7 @@ function ConvertTo-Win11UpdateEntries {
     $currentVersion = $null
     $seen           = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    $anchorPattern       = '<a\s([^>]*class="supLeftNavLink"[^>]*)>([^<]+)</a>'
+    $anchorPattern       = '<a\s([^>]*class="learnRenderLeftNavLink"[^>]*)>([^<]+)</a>'
     $anchors             = [regex]::Matches($Html, $anchorPattern)
     $versionHeaderPattern = '(?i)Windows\s+11[,\s]+version\s+(\w+)'
 
@@ -40,7 +40,7 @@ function ConvertTo-Win11UpdateEntries {
         '(?:\s*-?\s*(?<expired>EXPIRED))?'
     )
 
-    Write-Verbose "Found $($anchors.Count) supLeftNavLink anchors (Win11)"
+    Write-Verbose "Found $($anchors.Count) learnRenderLeftNavLink anchors (Win11)"
 
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value
