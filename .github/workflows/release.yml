@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+
+jobs:
+  create-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from manifest
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content 'Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1' -Raw
+          $match = [regex]::Match($content, "ModuleVersion\s*=\s*'([\d.]+)'")
+          if (-not $match.Success) {
+            Write-Host "::error::ModuleVersion not found in manifest"
+            exit 1
+          }
+          $version = $match.Groups[1].Value
+          Write-Host "Version: $version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Check if tag already exists
+        id: check-tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
