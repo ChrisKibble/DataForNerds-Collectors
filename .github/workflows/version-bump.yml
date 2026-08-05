@@ -1,0 +1,47 @@
+name: Version Bump
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Modules/DataForNerdsCollectors/**'
+      - '!Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+
+jobs:
+  bump-version:
+    name: Bump patch version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump patch version in manifest
+        shell: pwsh
+        run: |
+          $psd1 = 'Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+          $content = Get-Content $psd1 -Raw
+          $match = [regex]::Match($content, "ModuleVersion\s*=\s*'(\d+)\.(\d+)\.(\d+)'")
+          if (-not $match.Success) {
+            Write-Host "::error::ModuleVersion not found in manifest"
+            exit 1
+          }
+          $major = $match.Groups[1].Value
+          $minor = $match.Groups[2].Value
+          $build = [int]$match.Groups[3].Value + 1
+          $newVersion = "$major.$minor.$build"
+          $updated = $content -replace "(?<=ModuleVersion\s*=\s*')[\d.]+(?=')", $newVersion
+          [System.IO.File]::WriteAllText($psd1, $updated)
+          Write-Host "Version bumped to $newVersion"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1
+          git commit -m "chore: bump module version to $(grep -oP "ModuleVersion\s*=\s*'\K[\d.]+" Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1)"
+          git push
