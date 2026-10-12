@@ -25,15 +25,23 @@ function Compare-DataRecords {
         [string[]]$KeyFields
     )
 
+    # Null filter: @($null) is a one-element array, which would otherwise become a
+    # phantom '' key and a "removed": null changelog entry on first publish.
     $oldMap = @{}
-    foreach ($record in @($OldData)) {
+    foreach ($record in @($OldData) | Where-Object { $null -ne $_ }) {
         $key = ($KeyFields | ForEach-Object { $record.$_ }) -join '|'
+        if ($oldMap.ContainsKey($key)) {
+            Write-Warning "Compare-DataRecords: duplicate key '$key' in old data; last record wins in the diff basis"
+        }
         $oldMap[$key] = $record
     }
 
     $newMap = @{}
-    foreach ($record in @($NewData)) {
+    foreach ($record in @($NewData) | Where-Object { $null -ne $_ }) {
         $key = ($KeyFields | ForEach-Object { $record.$_ }) -join '|'
+        if ($newMap.ContainsKey($key)) {
+            Write-Warning "Compare-DataRecords: duplicate key '$key' in new data; last record wins in the diff basis"
+        }
         $newMap[$key] = $record
     }
 
@@ -108,10 +116,40 @@ function Update-Changelog {
     )
 
     if ($null -ne $ExistingChangelog) {
-        $entries = @($NewEntry) + @($ExistingChangelog.entries)
+        $entries = @($NewEntry) + @($ExistingChangelog.entries | Where-Object { $null -ne $_ })
     } else {
         $entries = @($NewEntry)
     }
+
+    # Cap growth: entries are newest-first, so keep the 10 most recent
+    # unconditionally plus anything newer than 90 days. Entries with an
+    # unparseable timestamp are kept (safe side).
+    $cutoff = [DateTime]::UtcNow.AddDays(-90)
+    $kept   = [System.Collections.Generic.List[object]]::new()
+    for ($i = 0; $i -lt $entries.Count; $i++) {
+        $keep = $i -lt 10
+        if (-not $keep) {
+            $tsRaw = $entries[$i].timestamp
+            $ts    = $null
+            if ($tsRaw -is [DateTime]) {
+                $ts = $tsRaw.ToUniversalTime()
+            } else {
+                $parsed = [DateTime]::MinValue
+                if ([DateTime]::TryParse([string]$tsRaw,
+                        [System.Globalization.CultureInfo]::InvariantCulture,
+                        [System.Globalization.DateTimeStyles]::RoundtripKind,
+                        [ref]$parsed)) {
+                    $ts = $parsed.ToUniversalTime()
+                }
+            }
+            $keep = ($null -eq $ts) -or ($ts -ge $cutoff)
+        }
+        if ($keep) { $kept.Add($entries[$i]) }
+    }
+    if ($kept.Count -lt $entries.Count) {
+        Write-Host "Changelog capped: dropped $($entries.Count - $kept.Count) entrie(s) older than 90 days."
+    }
+    $entries = @($kept)
 
     [PSCustomObject]@{
         metadata = [PSCustomObject]@{
@@ -142,6 +180,7 @@ function New-Envelope {
             lastModified  = $LastModified
             lastCollected = $Now
         }
-        data = $Data
+        # Array-wrap: exactly one record must serialize as [ {...} ], not {...}
+        data = @($Data)
     }
 }
