@@ -38,8 +38,7 @@ function ConvertTo-WinServerUpdateEntries {
         '\s*(?:&#x2014;|&#8212;|&mdash;|[—–\-]+)\s*' +
         '(?<kb>KB\d+)' +
         '\s*\(OS Builds?\s*' +
-        '(?<build1>[\d.]+)' +
-        '(?:\s+and\s+(?<build2>[\d.]+))?' +
+        '(?<allbuilds>[^)]+)' +
         '\)' +
         '(?:\s*(?<reltype>Preview|Out-of-band))?' +
         '(?:\s*-?\s*(?<expired>EXPIRED))?'
@@ -90,11 +89,11 @@ function ConvertTo-WinServerUpdateEntries {
         $dedupeKey = "$currentVersion|$kbNumber"
         if (-not $seen.Add($dedupeKey)) { continue }
 
-        $osBuilds = [System.Collections.Generic.List[string]]::new()
-        $osBuilds.Add($entryMatch.Groups['build1'].Value)
-        if ($entryMatch.Groups['build2'].Success -and $entryMatch.Groups['build2'].Value.Trim()) {
-            $osBuilds.Add($entryMatch.Groups['build2'].Value.Trim())
-        }
+        # Parse individual build numbers (entries can carry 1-N simultaneous builds)
+        $buildStr = $entryMatch.Groups['allbuilds'].Value
+        $osBuilds = ($buildStr -split '(?:,\s*(?:and\s+)?|\s+and\s+)') |
+                    ForEach-Object { $_.Trim() } |
+                    Where-Object   { $_ -match '^\d' }
 
         $releaseDate = [DateTime]::ParseExact(
             $entryMatch.Groups['date'].Value.Trim(),

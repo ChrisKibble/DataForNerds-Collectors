@@ -6,7 +6,7 @@ function ConvertTo-Win10UpdateEntries {
     .DESCRIPTION
         Walks the learnRenderLeftNavLink anchors and produces update objects. Handles the RTM
         initial-version header (which uses &#xA0; entities), normalizes KB numbers with
-        embedded spaces, and parses 1-3 simultaneous OS builds per entry.
+        embedded spaces, and parses any number of simultaneous OS builds per entry.
     #>
     [CmdletBinding()]
     param (

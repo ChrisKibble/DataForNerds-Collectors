@@ -5,7 +5,7 @@ function ConvertTo-Win11UpdateEntries {
 
     .DESCRIPTION
         Walks the learnRenderLeftNavLink anchors and produces update objects. Handles version
-        filtering and 1-3 simultaneous OS builds per entry.
+        filtering and any number of simultaneous OS builds per entry.
     #>
     [CmdletBinding()]
     param (
