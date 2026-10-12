@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # workflow_run checks out the default branch; pin to main's tip so the
           # version read below is the one the bump just pushed.

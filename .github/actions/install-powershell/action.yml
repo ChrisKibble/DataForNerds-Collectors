@@ -3,9 +3,9 @@ description: Install a pinned PowerShell version from GitHub Releases (.deb, amd
 
 inputs:
   powershell-version:
-    description: PowerShell release tag without the leading 'v' (e.g. 7.6.2)
+    description: PowerShell release tag without the leading 'v' (e.g. 7.6.6)
     required: false
-    default: '7.6.2'
+    default: '7.6.6'
 
 runs:
   using: composite

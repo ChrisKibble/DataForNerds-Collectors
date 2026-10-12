@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Bump from the current tip of main, not the (possibly stale)
           # commit that triggered this queued run.
