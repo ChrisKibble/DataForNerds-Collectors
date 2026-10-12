@@ -5,327 +5,73 @@ on:
     - cron: '0 6 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+
+# Prevent a workflow_dispatch run from overlapping an in-flight cron run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
-  run-collector:
-    name: Run Get-WindowsUpdateHistory
+  collector:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install PowerShell
-        uses: ./.github/actions/install-powershell
-
-      - name: Fetch current baselines from R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          fetch_baseline() {
-            local key=$1 file=$2
-            set +e
-            OUTPUT=$(npx wrangler@4 r2 object get "dfn-collectors/$key" --file="$file" --remote 2>&1)
-            RC=$?
-            set -e
-            if [ $RC -ne 0 ]; then
-              if echo "$OUTPUT" | grep -qiE "(not found|does not exist|NoSuchKey|10007)"; then
-                echo "$key not found in R2 (first run) — continuing without baseline."
-              else
-                echo "::error::R2 fetch failed unexpectedly for $key:"
-                echo "$OUTPUT"
-                exit 1
-              fi
-            fi
+    uses: ./.github/workflows/run-collector.yml
+    secrets: inherit
+    with:
+      collector: Get-WindowsUpdateHistory
+      datasets: |
+        [
+          {
+            "name": "windows-update-history",
+            "minRecords": 500,
+            "maxRecords": 6000,
+            "requiredFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild", "FullVersion", "ReleaseDate", "ReleaseType", "IsExpired", "ArticleUrl"],
+            "keyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "nonEmptyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "sourceUrls": [
+              "https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d",
+              "https://aka.ms/Windows11UpdateHistory",
+              "https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2",
+              "https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee"
+            ]
+          },
+          {
+            "name": "windows-10-update-history",
+            "filter": { "field": "MajorVersion", "equals": 10 },
+            "minRecords": 200,
+            "maxRecords": 3000,
+            "requiredFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild", "FullVersion", "ReleaseDate", "ReleaseType", "IsExpired", "ArticleUrl"],
+            "keyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "nonEmptyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "sourceUrls": [
+              "https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d"
+            ]
+          },
+          {
+            "name": "windows-11-update-history",
+            "filter": { "field": "MajorVersion", "equals": 11 },
+            "minRecords": 50,
+            "maxRecords": 2000,
+            "requiredFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild", "FullVersion", "ReleaseDate", "ReleaseType", "IsExpired", "ArticleUrl"],
+            "keyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "nonEmptyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "sourceUrls": [
+              "https://aka.ms/Windows11UpdateHistory",
+              "https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2"
+            ]
+          },
+          {
+            "name": "windows-server-update-history",
+            "filter": { "field": "OSType", "equals": "Server" },
+            "minRecords": 50,
+            "maxRecords": 2000,
+            "requiredFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild", "FullVersion", "ReleaseDate", "ReleaseType", "IsExpired", "ArticleUrl"],
+            "keyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "nonEmptyFields": ["OSType", "MajorVersion", "WindowsVersion", "KBNumber", "OSBuild"],
+            "sourceUrls": [
+              "https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee"
+            ]
           }
-          fetch_baseline v2/microsoft/windows-update-history.json current-all.json
-          fetch_baseline v2/microsoft/windows-10-update-history.json current-win10.json
-          fetch_baseline v2/microsoft/windows-11-update-history.json current-win11.json
-          fetch_baseline v2/microsoft/windows-server-update-history.json current-server.json
-          fetch_baseline v2/microsoft/windows-update-history.changelog.json changelog-current-all.json
-          fetch_baseline v2/microsoft/windows-10-update-history.changelog.json changelog-current-win10.json
-          fetch_baseline v2/microsoft/windows-11-update-history.changelog.json changelog-current-win11.json
-          fetch_baseline v2/microsoft/windows-server-update-history.changelog.json changelog-current-server.json
-
-      - name: Run Get-WindowsUpdateHistory
-        shell: pwsh
-        env:
-          DFN_BOT_NAME: ${{ secrets.DFN_BOT_NAME }}
-          DFN_BOT_INFO: ${{ secrets.DFN_BOT_INFO }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
-          . "$env:GITHUB_WORKSPACE/.github/scripts/envelope-helpers.ps1"
-
-          $now     = [DateTime]::UtcNow.ToString('o')
-          $maxAttempts = 3
-          $results = $null
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-              try {
-                  $results = Get-WindowsUpdateHistory
-                  break
-              } catch {
-                  Write-Host "Attempt $attempt of $maxAttempts failed: $_"
-                  if ($attempt -eq $maxAttempts) { throw }
-                  Start-Sleep -Seconds (30 * $attempt)
-              }
-          }
-          $win10      = $results | Where-Object { $_.MajorVersion -eq 10 }
-          $win11      = $results | Where-Object { $_.MajorVersion -eq 11 }
-          $server = $results | Where-Object { $_.OSType -eq 'Server' }
-          Write-Host "Returned $($results.Count) total record(s): $($win10.Count) Win10, $($win11.Count) Win11, $($server.Count) Server."
-
-          # --- Validation ---
-          $requiredFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild','FullVersion','ReleaseDate','ReleaseType','IsExpired','ArticleUrl')
-          for ($i = 0; $i -lt $results.Count; $i++) {
-              $missing = $requiredFields | Where-Object { $_ -notin $results[$i].PSObject.Properties.Name }
-              if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }
-          }
-          if ($results.Count   -lt  500) { throw "Expected at least 500 total records, got $($results.Count)" }
-          if ($results.Count   -gt 6000) { throw "Expected at most 6000 total records, got $($results.Count)" }
-          if ($win10.Count     -lt  200) { throw "Expected at least 200 Win10 records, got $($win10.Count)" }
-          if ($win10.Count     -gt 3000) { throw "Expected at most 3000 Win10 records, got $($win10.Count)" }
-          if ($win11.Count     -lt   50) { throw "Expected at least 50 Win11 records, got $($win11.Count)" }
-          if ($win11.Count     -gt 2000) { throw "Expected at most 2000 Win11 records, got $($win11.Count)" }
-          if ($server.Count -lt   50) { throw "Expected at least 50 Server records, got $($server.Count)" }
-          if ($server.Count -gt 2000) { throw "Expected at most 2000 Server records, got $($server.Count)" }
-          Write-Host "Validation passed."
-
-          $ws = $env:GITHUB_WORKSPACE
-
-          # All updates
-          $lmAll = Get-LastModified $results "$ws/current-all.json" $now
-          Write-Host "windows-update-history         lastModified: $lmAll"
-          New-Envelope 'windows-update-history' @(
-              'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d',
-              'https://aka.ms/Windows11UpdateHistory',
-              'https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2',
-              'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
-          ) $results $lmAll $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-all.json" -Encoding utf8
-
-          # Windows 10 only
-          $lmWin10 = Get-LastModified $win10 "$ws/current-win10.json" $now
-          Write-Host "windows-10-update-history      lastModified: $lmWin10"
-          New-Envelope 'windows-10-update-history' @(
-              'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d'
-          ) $win10 $lmWin10 $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win10.json" -Encoding utf8
-
-          # Windows 11 only
-          $lmWin11 = Get-LastModified $win11 "$ws/current-win11.json" $now
-          Write-Host "windows-11-update-history      lastModified: $lmWin11"
-          New-Envelope 'windows-11-update-history' @(
-              'https://aka.ms/Windows11UpdateHistory',
-              'https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2'
-          ) $win11 $lmWin11 $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win11.json" -Encoding utf8
-
-          # Windows Server only
-          $lmServer = Get-LastModified $server "$ws/current-server.json" $now
-          Write-Host "windows-server-update-history     lastModified: $lmServer"
-          New-Envelope 'windows-server-update-history' @(
-              'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
-          ) $server $lmServer $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-server.json" -Encoding utf8
-
-          Add-Content -Path $env:GITHUB_ENV -Value "ALL_CHANGED=$(($lmAll -eq $now).ToString().ToLower())"
-          Add-Content -Path $env:GITHUB_ENV -Value "WIN10_CHANGED=$(($lmWin10 -eq $now).ToString().ToLower())"
-          Add-Content -Path $env:GITHUB_ENV -Value "WIN11_CHANGED=$(($lmWin11 -eq $now).ToString().ToLower())"
-          Add-Content -Path $env:GITHUB_ENV -Value "SERVER_CHANGED=$(($lmServer -eq $now).ToString().ToLower())"
-          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_ALL=$lmAll"
-          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN10=$lmWin10"
-          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_WIN11=$lmWin11"
-          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED_SERVER=$lmServer"
-
-          # --- Changelogs ---
-          $keyFields = @('OSType','MajorVersion','WindowsVersion','KBNumber','OSBuild')
-          $changelogSets = @(
-              @{ Data = $results;     Lm = $lmAll;         Current = 'current-all.json';        Changelog = 'changelog-current-all.json';        Output = 'changelog-output-all.json';        Dataset = 'windows-update-history' },
-              @{ Data = $win10;       Lm = $lmWin10;       Current = 'current-win10.json';      Changelog = 'changelog-current-win10.json';      Output = 'changelog-output-win10.json';      Dataset = 'windows-10-update-history' },
-              @{ Data = $win11;       Lm = $lmWin11;       Current = 'current-win11.json';      Changelog = 'changelog-current-win11.json';      Output = 'changelog-output-win11.json';      Dataset = 'windows-11-update-history' },
-              @{ Data = $server;      Lm = $lmServer;      Current = 'current-server.json';      Changelog = 'changelog-current-server.json';      Output = 'changelog-output-server.json';      Dataset = 'windows-server-update-history' }
-          )
-          foreach ($set in $changelogSets) {
-              if ($set.Lm -eq $now -and (Test-Path "$ws/$($set.Current)")) {
-                  $currentData = Get-Content "$ws/$($set.Current)" -Raw | ConvertFrom-Json
-                  $changes = Compare-DataRecords -OldData $currentData.data -NewData $set.Data -KeyFields $keyFields
-                  if (@($changes.added).Count -gt 0 -or @($changes.removed).Count -gt 0 -or @($changes.modified).Count -gt 0) {
-                      $entry = New-ChangelogEntry -Changes $changes -Timestamp $now
-                      $existingChangelog = $null
-                      if (Test-Path "$ws/$($set.Changelog)") {
-                          $existingChangelog = Get-Content "$ws/$($set.Changelog)" -Raw | ConvertFrom-Json
-                      }
-                      $changelog = Update-Changelog -ExistingChangelog $existingChangelog -NewEntry $entry -Dataset $set.Dataset
-                      $changelog | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/$($set.Output)" -Encoding utf8
-                      Write-Host "$($set.Dataset) changelog: $(@($changes.added).Count) added, $(@($changes.removed).Count) removed, $(@($changes.modified).Count) modified"
-                  }
-              }
-          }
-
-      - name: Validate output against schema
-        run: |
-          pip install -q check-jsonschema
-          check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-update-history.schema.json output-all.json
-          check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-10-update-history.schema.json output-win10.json
-          check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-11-update-history.schema.json output-win11.json
-          check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/windows-server-update-history.schema.json output-server.json
-
-      - name: Upload windows-update-history.json to R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/windows-update-history.json --file=output-all.json --content-type=application/json --remote
-
-      - name: Upload windows-10-update-history.json to R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/windows-10-update-history.json --file=output-win10.json --content-type=application/json --remote
-
-      - name: Upload windows-11-update-history.json to R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/windows-11-update-history.json --file=output-win11.json --content-type=application/json --remote
-
-      - name: Upload windows-server-update-history.json to R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/windows-server-update-history.json --file=output-server.json --content-type=application/json --remote
-
-      - name: Upload changelogs to R2
-        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true' || env.SERVER_CHANGED == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          upload_changelog() {
-            local file=$1 key=$2
-            if [ -f "$file" ]; then
-              npx wrangler@4 r2 object put "dfn-collectors/$key" --file="$file" --content-type=application/json --remote
-            fi
-          }
-          upload_changelog changelog-output-all.json v2/microsoft/windows-update-history.changelog.json
-          upload_changelog changelog-output-win10.json v2/microsoft/windows-10-update-history.changelog.json
-          upload_changelog changelog-output-win11.json v2/microsoft/windows-11-update-history.changelog.json
-          upload_changelog changelog-output-server.json v2/microsoft/windows-server-update-history.changelog.json
-
-      - name: Update index.json in R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: |
-          set -euo pipefail
-          set +e
-          OUTPUT=$(npx wrangler@4 r2 object get dfn-collectors/v2/index.json --file=index-current.json --remote 2>&1)
-          RC=$?
-          set -e
-          if [ $RC -ne 0 ]; then
-            if echo "$OUTPUT" | grep -qiE "(not found|does not exist|NoSuchKey|10007)"; then
-              echo "index.json not found in R2 — skipping index update."
-              exit 0
-            else
-              echo "::error::R2 fetch of index.json failed unexpectedly:"
-              echo "$OUTPUT"
-              exit 1
-            fi
-          fi
-          LAST_MODIFIED_ALL=$(jq -r '.metadata.lastModified' output-all.json)
-          LAST_MODIFIED_WIN10=$(jq -r '.metadata.lastModified' output-win10.json)
-          LAST_MODIFIED_WIN11=$(jq -r '.metadata.lastModified' output-win11.json)
-          LAST_MODIFIED_SERVER=$(jq -r '.metadata.lastModified' output-server.json)
-          OLD_LM_ALL=$(jq -r '.datasets[] | select(.name == "windows-update-history") | .lastModified // "null"' index-current.json)
-          OLD_LM_WIN10=$(jq -r '.datasets[] | select(.name == "windows-10-update-history") | .lastModified // "null"' index-current.json)
-          OLD_LM_WIN11=$(jq -r '.datasets[] | select(.name == "windows-11-update-history") | .lastModified // "null"' index-current.json)
-          OLD_LM_SERVER=$(jq -r '.datasets[] | select(.name == "windows-server-update-history") | .lastModified // "null"' index-current.json)
-          jq \
-            --arg all      "$LAST_MODIFIED_ALL" \
-            --arg win10    "$LAST_MODIFIED_WIN10" \
-            --arg win11    "$LAST_MODIFIED_WIN11" \
-            --arg server   "$LAST_MODIFIED_SERVER" \
-            '.datasets |= map(
-              if   .name == "windows-update-history"             then .lastModified = $all
-              elif .name == "windows-10-update-history"          then .lastModified = $win10
-              elif .name == "windows-11-update-history"          then .lastModified = $win11
-              elif .name == "windows-server-update-history"      then .lastModified = $server
-              else . end)' \
-            index-current.json > index-updated.json
-          npx wrangler@4 r2 object put dfn-collectors/v2/index.json --file=index-updated.json --content-type=application/json --remote
-          if [ "$OLD_LM_ALL" != "$LAST_MODIFIED_ALL" ] || [ "$OLD_LM_WIN10" != "$LAST_MODIFIED_WIN10" ] || [ "$OLD_LM_WIN11" != "$LAST_MODIFIED_WIN11" ] || [ "$OLD_LM_SERVER" != "$LAST_MODIFIED_SERVER" ]; then
-            curl -fsSL -X POST \
-              "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d '{"files":["https://api.datafornerds.io/v2/index.json"]}' \
-              || echo "::warning::index.json cache purge failed — stale content will expire within 6h."
-          fi
-
-      - name: Purge Cloudflare cache for changed datasets
-        if: env.ALL_CHANGED == 'true' || env.WIN10_CHANGED == 'true' || env.WIN11_CHANGED == 'true' || env.SERVER_CHANGED == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: |
-          set -euo pipefail
-          files=()
-          [ "$ALL_CHANGED"       = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-update-history.json")
-          [ "$WIN10_CHANGED"     = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-10-update-history.json")
-          [ "$WIN11_CHANGED"     = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-11-update-history.json")
-          [ "$SERVER_CHANGED"    = "true" ] && files+=("https://api.datafornerds.io/v2/microsoft/windows-server-update-history.json")
-          printf '%s\n' "${files[@]}" | jq -R . | jq -sc '{files:.}' | \
-            curl -fsSL -X POST \
-              "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d @- \
-            || echo "::warning::Cache purge failed — stale content will expire within 6h."
-
-      - name: Create or update failure issue
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const label = 'collector-failure';
-            const title = `[Collector Failure] ${{ github.workflow }}`;
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = [
-              `The **${{ github.workflow }}** workflow failed.`,
-              '',
-              `- **Run:** ${runUrl}`,
-              `- **Time:** ${new Date().toISOString()}`,
-              `- **Trigger:** ${{ github.event_name }}`,
-              '',
-              `Check the [workflow logs](${runUrl}) for details.`
-            ].join('\n');
-
-            try {
-              await github.rest.issues.getLabel({ ...context.repo, name: label });
-            } catch {
-              await github.rest.issues.createLabel({ ...context.repo, name: label, color: 'd73a4a' });
-            }
-
-            const { data: issues } = await github.rest.issues.listForRepo({
-              ...context.repo,
-              state: 'open',
-              labels: label,
-            });
-            const existing = issues.find(i => i.title === title);
-
-            if (existing) {
-              await github.rest.issues.createComment({
-                ...context.repo,
-                issue_number: existing.number,
-                body: `### Failure recurrence\n\n${body}`,
-              });
-            } else {
-              await github.rest.issues.create({
-                ...context.repo,
-                title,
-                body,
-                labels: [label],
-              });
-            }
+        ]

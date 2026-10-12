@@ -5,219 +5,33 @@ on:
     - cron: '30 6 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+
+# Prevent a workflow_dispatch run from overlapping an in-flight cron run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
-  run-collector:
-    name: Run Get-Microsoft365AppsUpdateHistory
+  collector:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install PowerShell
-        uses: ./.github/actions/install-powershell
-
-      - name: Fetch current JSON from R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          fetch_r2() {
-            local key=$1 file=$2 label=$3
-            set +e
-            OUTPUT=$(npx wrangler@4 r2 object get "dfn-collectors/$key" --file="$file" --remote 2>&1)
-            RC=$?
-            set -e
-            if [ $RC -ne 0 ]; then
-              if echo "$OUTPUT" | grep -qiE "(not found|does not exist|NoSuchKey|10007)"; then
-                echo "$label not found in R2 (first run) — continuing without baseline."
-              else
-                echo "::error::R2 fetch failed unexpectedly for $label:"
-                echo "$OUTPUT"
-                exit 1
-              fi
-            fi
+    uses: ./.github/workflows/run-collector.yml
+    secrets: inherit
+    with:
+      collector: Get-Microsoft365AppsUpdateHistory
+      datasets: |
+        [
+          {
+            "name": "m365-apps-update-history",
+            "minRecords": 100,
+            "maxRecords": 2000,
+            "requiredFields": ["ReleaseDate", "ChannelName", "Version", "Build", "FullBuild"],
+            "keyFields": ["ReleaseDate", "ChannelName", "Version", "Build"],
+            "nonEmptyFields": ["ReleaseDate", "Version", "Build"],
+            "sourceUrls": [
+              "https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date"
+            ]
           }
-          fetch_r2 v2/microsoft/m365-apps-update-history.json current.json "Data file"
-          fetch_r2 v2/microsoft/m365-apps-update-history.changelog.json changelog-current.json "Changelog"
-
-      - name: Run Get-Microsoft365AppsUpdateHistory
-        shell: pwsh
-        env:
-          DFN_BOT_NAME: ${{ secrets.DFN_BOT_NAME }}
-          DFN_BOT_INFO: ${{ secrets.DFN_BOT_INFO }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module "$env:GITHUB_WORKSPACE/Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1" -Force
-          . "$env:GITHUB_WORKSPACE/.github/scripts/envelope-helpers.ps1"
-
-          $now     = [DateTime]::UtcNow.ToString('o')
-          $maxAttempts = 3
-          $results = $null
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-              try {
-                  $results = Get-Microsoft365AppsUpdateHistory
-                  break
-              } catch {
-                  Write-Host "Attempt $attempt of $maxAttempts failed: $_"
-                  if ($attempt -eq $maxAttempts) { throw }
-                  Start-Sleep -Seconds (30 * $attempt)
-              }
-          }
-          Write-Host "Returned $($results.Count) record(s)."
-
-          # --- Validation ---
-          $requiredFields = @('ReleaseDate','ChannelName','Version','Build','FullBuild')
-          for ($i = 0; $i -lt $results.Count; $i++) {
-              $missing = $requiredFields | Where-Object { $_ -notin $results[$i].PSObject.Properties.Name }
-              if ($missing) { throw "Record $i is missing fields: $($missing -join ', ')" }
-          }
-          if ($results.Count -lt  100) { throw "Expected at least 100 records, got $($results.Count)" }
-          if ($results.Count -gt 2000) { throw "Expected at most 2000 records, got $($results.Count)" }
-          Write-Host "Validation passed."
-
-          $ws = $env:GITHUB_WORKSPACE
-          $lm = Get-LastModified $results "$ws/current.json" $now
-          Write-Host "m365-apps-update-history lastModified: $lm"
-          New-Envelope 'm365-apps-update-history' @(
-              'https://learn.microsoft.com/en-us/officeupdates/update-history-microsoft365-apps-by-date'
-          ) $results $lm $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output.json" -Encoding utf8
-          Add-Content -Path $env:GITHUB_ENV -Value "DATA_CHANGED=$(($lm -eq $now).ToString().ToLower())"
-          Add-Content -Path $env:GITHUB_ENV -Value "LAST_MODIFIED=$lm"
-
-          # --- Changelog ---
-          if ($lm -eq $now -and (Test-Path "$ws/current.json")) {
-              $current = Get-Content "$ws/current.json" -Raw | ConvertFrom-Json
-              $changes = Compare-DataRecords -OldData $current.data -NewData $results -KeyFields @('ReleaseDate','ChannelName','Version','Build')
-              if (@($changes.added).Count -gt 0 -or @($changes.removed).Count -gt 0 -or @($changes.modified).Count -gt 0) {
-                  $entry = New-ChangelogEntry -Changes $changes -Timestamp $now
-                  $existingChangelog = $null
-                  if (Test-Path "$ws/changelog-current.json") {
-                      $existingChangelog = Get-Content "$ws/changelog-current.json" -Raw | ConvertFrom-Json
-                  }
-                  $changelog = Update-Changelog -ExistingChangelog $existingChangelog -NewEntry $entry -Dataset 'm365-apps-update-history'
-                  $changelog | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/changelog-output.json" -Encoding utf8
-                  Write-Host "Changelog: $(@($changes.added).Count) added, $(@($changes.removed).Count) removed, $(@($changes.modified).Count) modified"
-              }
-          }
-
-      - name: Validate output against schema
-        run: |
-          pip install -q check-jsonschema
-          check-jsonschema --schemafile https://api.datafornerds.io/v2/microsoft/schemas/m365-apps-update-history.schema.json output.json
-
-      - name: Upload to Cloudflare R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/m365-apps-update-history.json --file=output.json --content-type=application/json --remote
-
-      - name: Upload changelog to R2
-        if: env.DATA_CHANGED == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -f changelog-output.json ]; then
-            npx wrangler@4 r2 object put dfn-collectors/v2/microsoft/m365-apps-update-history.changelog.json --file=changelog-output.json --content-type=application/json --remote
-          fi
-
-      - name: Update index.json in R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: |
-          set -euo pipefail
-          set +e
-          OUTPUT=$(npx wrangler@4 r2 object get dfn-collectors/v2/index.json --file=index-current.json --remote 2>&1)
-          RC=$?
-          set -e
-          if [ $RC -ne 0 ]; then
-            if echo "$OUTPUT" | grep -qiE "(not found|does not exist|NoSuchKey|10007)"; then
-              echo "index.json not found in R2 — skipping index update."
-              exit 0
-            else
-              echo "::error::R2 fetch of index.json failed unexpectedly:"
-              echo "$OUTPUT"
-              exit 1
-            fi
-          fi
-          LAST_MODIFIED=$(jq -r '.metadata.lastModified' output.json)
-          OLD_LM=$(jq -r '.datasets[] | select(.name == "m365-apps-update-history") | .lastModified // "null"' index-current.json)
-          jq --arg name "m365-apps-update-history" --arg lm "$LAST_MODIFIED" \
-            '.datasets |= map(if .name == $name then .lastModified = $lm else . end)' \
-            index-current.json > index-updated.json
-          npx wrangler@4 r2 object put dfn-collectors/v2/index.json --file=index-updated.json --content-type=application/json --remote
-          if [ "$OLD_LM" != "$LAST_MODIFIED" ]; then
-            curl -fsSL -X POST \
-              "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d '{"files":["https://api.datafornerds.io/v2/index.json"]}' \
-              || echo "::warning::index.json cache purge failed — stale content will expire within 6h."
-          fi
-
-      - name: Purge Cloudflare cache
-        if: env.DATA_CHANGED == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: |
-          curl -fsSL -X POST \
-            "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d '{"files":["https://api.datafornerds.io/v2/microsoft/m365-apps-update-history.json"]}' \
-            || echo "::warning::Cache purge failed — stale content will expire within 6h."
-
-      - name: Create or update failure issue
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const label = 'collector-failure';
-            const title = `[Collector Failure] ${{ github.workflow }}`;
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = [
-              `The **${{ github.workflow }}** workflow failed.`,
-              '',
-              `- **Run:** ${runUrl}`,
-              `- **Time:** ${new Date().toISOString()}`,
-              `- **Trigger:** ${{ github.event_name }}`,
-              '',
-              `Check the [workflow logs](${runUrl}) for details.`
-            ].join('\n');
-
-            try {
-              await github.rest.issues.getLabel({ ...context.repo, name: label });
-            } catch {
-              await github.rest.issues.createLabel({ ...context.repo, name: label, color: 'd73a4a' });
-            }
-
-            const { data: issues } = await github.rest.issues.listForRepo({
-              ...context.repo,
-              state: 'open',
-              labels: label,
-            });
-            const existing = issues.find(i => i.title === title);
-
-            if (existing) {
-              await github.rest.issues.createComment({
-                ...context.repo,
-                issue_number: existing.number,
-                body: `### Failure recurrence\n\n${body}`,
-              });
-            } else {
-              await github.rest.issues.create({
-                ...context.repo,
-                title,
-                body,
-                labels: [label],
-              });
-            }
+        ]
