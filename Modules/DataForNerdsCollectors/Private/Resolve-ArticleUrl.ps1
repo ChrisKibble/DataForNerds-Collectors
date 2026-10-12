@@ -29,7 +29,8 @@ function Resolve-ArticleUrl {
         return [Uri]::new([Uri]$BaseUri, $href).AbsoluteUri
     }
     catch {
+        # Never publish a non-absolute ArticleUrl: unresolvable means no URL.
         Write-Verbose "Failed to resolve href '$href' against base '$BaseUri': $_"
-        return $href
+        return $null
     }
 }

@@ -65,6 +65,10 @@ function Get-WindowsUpdateHistory {
     # Source URLs
     $Win10UpdateHistoryUrl      = 'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d'
     $Win11UpdateHistoryUrl      = 'https://aka.ms/Windows11UpdateHistory'
+    # NOTE: the hotpatch URL pins a year and version segment — Microsoft publishes a
+    # new page per annual release, so this needs a manual rollover (next one likely
+    # .../2027/...-version-27h2). A stale URL fails the fetch, which warns (or throws
+    # under DFN_STRICT_FETCH) rather than silently dropping hotpatch records.
     $Win11HotpatchHistoryUrl    = 'https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2'
     $WinServerUpdateHistoryUrl  = 'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
     $Windows10ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/release-information'
@@ -72,6 +76,16 @@ function Get-WindowsUpdateHistory {
 
     $versionsToQuery = if ($MajorVersion) { $MajorVersion | Select-Object -Unique } else { @(10, 11, 2022, 2025) }
     $allResults      = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+    # In CI (DFN_STRICT_FETCH=true, set by run-collector.yml) a failed source fetch
+    # throws so the workflow's retry loop handles it; locally it degrades with a
+    # warning. Without this, a failed fetch publishes silently-partial data as long
+    # as the record count stays above the validation floor.
+    $strictFetch = $env:DFN_STRICT_FETCH -eq 'true'
+    $failFetch = {
+        param($message)
+        if ($strictFetch) { throw $message } else { Write-Warning $message }
+    }
 
     # --- Build version-to-base-build maps for filtering cross-version builds ---
     $win10BuildMap = @{}
@@ -91,7 +105,7 @@ function Get-WindowsUpdateHistory {
             Write-Verbose "Win10 build map: $($win10BuildMap.Count) version(s)"
         }
         else {
-            Write-Warning 'Could not fetch Windows 10 release info; build filtering disabled for Win10'
+            & $failFetch 'Could not fetch Windows 10 release info; build filtering disabled for Win10'
         }
     }
 
@@ -106,7 +120,7 @@ function Get-WindowsUpdateHistory {
             Write-Verbose "Win11 build map: $($win11BuildMap.Count) version(s)"
         }
         else {
-            Write-Warning 'Could not fetch Windows 11 release info; build filtering disabled for Win11'
+            & $failFetch 'Could not fetch Windows 11 release info; build filtering disabled for Win11'
         }
     }
 
@@ -125,6 +139,9 @@ function Get-WindowsUpdateHistory {
             foreach ($result in $win10Results) {
                 $allResults.Add($result)
             }
+        }
+        else {
+            & $failFetch 'Could not fetch the Windows 10 update history page; Windows 10 entries will be missing'
         }
     }
 
@@ -160,6 +177,14 @@ function Get-WindowsUpdateHistory {
                 }
                 Write-Verbose "Hotpatch entries found: $($hotpatchResults.Count)"
             }
+            else {
+                # Hotpatch records are a small share of Win11 records, so record-count
+                # validation would not catch their silent disappearance.
+                & $failFetch 'Could not fetch the Windows 11 hotpatch history page; hotpatch entries will be missing (check the year/version-pinned URL)'
+            }
+        }
+        else {
+            & $failFetch 'Could not fetch the Windows 11 update history page; Windows 11 entries will be missing'
         }
     }
 
@@ -180,6 +205,9 @@ function Get-WindowsUpdateHistory {
                     $allResults.Add($result)
                 }
             }
+        }
+        else {
+            & $failFetch 'Could not fetch the Windows Server update history page; Windows Server entries will be missing'
         }
     }
 

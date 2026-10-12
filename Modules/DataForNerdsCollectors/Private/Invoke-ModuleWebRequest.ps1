@@ -12,7 +12,6 @@ function Invoke-ModuleWebRequest {
     try {
         $response = Invoke-WebRequest -Uri $Uri `
                                       -Headers $script:DefaultHeaders `
-                                      -UseBasicParsing `
                                       -MaximumRedirection 10 `
                                       -ErrorAction Stop
         return $response

@@ -70,10 +70,33 @@ function ConvertTo-Microsoft365AppsUpdateEntries {
     $lastYear = ''
     foreach ($row in $rows) {
         $cells = [regex]::Matches($row.Groups[1].Value, '(?s)<td[^>]*>(.*?)</td>')
-        if ($cells.Count -lt $headers.Count) { continue }
 
-        $year     = ($cells[$yearIdx].Groups[1].Value -replace '<[^>]+>', '').Trim()
-        $monthDay = ($cells[$dateIdx].Groups[1].Value -replace '<[^>]+>', '').Trim()
+        # A Year cell rendered with rowspan makes continuation rows one <td> short;
+        # those rows belong to the carried year. Any other short row is a structure
+        # change and must be loud, not silently dropped.
+        $yearFromRowspan = $false
+        if ($cells.Count -eq ($headers.Count - 1)) {
+            $yearFromRowspan = $true
+        }
+        elseif ($cells.Count -lt $headers.Count) {
+            Write-Warning "M365 row has $($cells.Count) cells (expected $($headers.Count)); skipping — table structure may have changed."
+            continue
+        }
+
+        # Column index in this row for an original header index (continuation rows
+        # omit the Year cell, shifting every later column left by one).
+        $cellIndex = {
+            param($i)
+            if ($yearFromRowspan -and $i -gt $yearIdx) { $i - 1 } else { $i }
+        }
+
+        if ($yearFromRowspan) {
+            $year = $lastYear
+        }
+        else {
+            $year = ($cells[$yearIdx].Groups[1].Value -replace '<[^>]+>', '').Trim()
+        }
+        $monthDay = ($cells[(& $cellIndex $dateIdx)].Groups[1].Value -replace '<[^>]+>', '').Trim()
         if ($year) { $lastYear = $year } else { $year = $lastYear }
         if (-not $year -or -not $monthDay) { continue }
 
@@ -89,7 +112,7 @@ function ConvertTo-Microsoft365AppsUpdateEntries {
         $isoDate = $releaseDate.ToString('yyyy-MM-dd')
 
         foreach ($channelName in $channelIdxs.Keys) {
-            $cellText  = $cells[$channelIdxs[$channelName]].Groups[1].Value -replace '<[^>]+>', ''
+            $cellText  = $cells[(& $cellIndex $channelIdxs[$channelName])].Groups[1].Value -replace '<[^>]+>', ''
             $vbMatches = [regex]::Matches($cellText, 'Version\s+(\d+)\s+\(Build\s+([\d.]+)\)')
             foreach ($m in $vbMatches) {
                 $build = $m.Groups[2].Value

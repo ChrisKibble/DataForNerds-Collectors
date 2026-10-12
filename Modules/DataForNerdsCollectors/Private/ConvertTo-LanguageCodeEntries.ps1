@@ -2,6 +2,11 @@ function ConvertTo-LanguageCodeEntries {
     <#
     .SYNOPSIS
         Parses the language codes HTML table and returns structured objects.
+
+    .DESCRIPTION
+        Scoped to the language-codes table itself (located by its header cells) rather
+        than tag-stripping the whole page — digits-only text anywhere else on the page
+        (nav, footer, revision numbers) must never fabricate records.
     #>
     [CmdletBinding()]
     param (
@@ -11,49 +16,34 @@ function ConvertTo-LanguageCodeEntries {
 
     $results = [System.Collections.Generic.List[PSCustomObject]]::new()
 
-    $html = $Html -replace '(?s)<[^>]*>', ''
-    $lines = $html -split "`n" | Where-Object { $_.Trim() }
-
-    $langCode = $null
-    $description = $null
-    $bcp47 = $null
-    $fieldIndex = 0
-
-    foreach ($line in $lines) {
-        $trimmed = $line.Trim()
-        if (-not $trimmed) { continue }
-
-        if ($trimmed -eq 'Language Code' -or $trimmed -eq 'Description (informative)' -or $trimmed -eq 'BCP 47 Code') {
-            continue
+    # Find the table whose header row carries the expected columns.
+    $tableHtml = $null
+    foreach ($table in [regex]::Matches($Html, '(?s)<table[^>]*>.*?</table>')) {
+        if ($table.Value -match '(?s)Language\s+Code' -and $table.Value -match '(?s)BCP\s*47') {
+            $tableHtml = $table.Value
+            break
         }
+    }
+    if (-not $tableHtml) {
+        Write-Warning 'Could not locate the language-codes table; page structure may have changed.'
+        return $results
+    }
 
-        if ($fieldIndex -eq 0) {
-            if ($trimmed -match '^\d+$' -or $trimmed -eq 'Any other value') {
-                $langCode = $trimmed
-                $fieldIndex = 1
-            }
-        }
-        elseif ($fieldIndex -eq 1) {
-            $description = $trimmed
-            $fieldIndex = 2
-        }
-        elseif ($fieldIndex -eq 2) {
-            $bcp47 = $trimmed
-            $fieldIndex = 0
+    foreach ($row in [regex]::Matches($tableHtml, '(?s)<tr[^>]*>(.*?)</tr>')) {
+        $cells = @([regex]::Matches($row.Groups[1].Value, '(?s)<t[dh][^>]*>(.*?)</t[dh]>') | ForEach-Object {
+            ($_.Groups[1].Value -replace '(?s)<[^>]*>', '').Trim()
+        })
+        if ($cells.Count -lt 3) { continue }
 
-            if ($langCode -and $langCode -ne 'Any other value') {
-                $entry = [PSCustomObject]@{
-                    LanguageCode = $langCode
-                    Description  = $description
-                    BCP47        = $bcp47
-                }
-                $results.Add($entry)
-            }
+        $langCode = $cells[0]
+        # Digits-only filter also skips the header row and the 'Any other value' row.
+        if ($langCode -notmatch '^\d+$') { continue }
 
-            $langCode = $null
-            $description = $null
-            $bcp47 = $null
-        }
+        $results.Add([PSCustomObject]@{
+            LanguageCode = $langCode
+            Description  = $cells[1]
+            BCP47        = $cells[2]
+        })
     }
 
     return $results

@@ -4,8 +4,10 @@ function ConvertTo-Win11HotpatchEntries {
         Parses Windows 11 hotpatch entries from the hotpatch release notes page.
 
     .DESCRIPTION
-        Skips non-Windows-11 sections (e.g., Windows Server) and baseline entries,
-        returning only hotpatch KB entries.
+        Thin wrapper over ConvertTo-WindowsUpdateEntriesCore. Skips non-Windows-11
+        sections (e.g. Windows Server) by clearing the section context, requires the
+        "Hotpatch " prefix before the KB, and maps the trailing release-type word to
+        Hotpatch / Hotpatch-OOB.
     #>
     [CmdletBinding()]
     param (
@@ -22,115 +24,24 @@ function ConvertTo-Win11HotpatchEntries {
         [hashtable]$VersionBuildMap
     )
 
-    $results        = [System.Collections.Generic.List[PSCustomObject]]::new()
-    $currentVersion = $null
-    $seen           = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-    $anchorPattern          = '<a\s([^>]*class="learnRenderLeftNavLink"[^>]*)>([^<]+)</a>'
-    $anchors                = [regex]::Matches($Html, $anchorPattern)
-    $anySectionHeaderPattern = '(?i)Hotpatch on Windows'
-    $win11HeaderPattern      = '(?i)Hotpatch on Windows\s+11\s+Enterprise[,\s]+version\s+(\w+)'
-
-    $hotpatchEntryPattern = (
-        '(?i)' +
-        '(?<date>(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4})' +
-        '\s*(?:&#x2014;|&#8212;|&mdash;|[—–\-]+)\s*' +
-        'Hotpatch\s+' +
-        '(?<kb>KB\d+)' +
-        '\s*\(OS Builds?\s*' +
-        '(?<allbuilds>[^)]+)' +
-        '\)' +
-        '(?:\s*(?<reltype>Out-of-band))?' +
-        '(?:\s*-?\s*(?<expired>EXPIRED))?'
-    )
-
-    Write-Verbose "Found $($anchors.Count) learnRenderLeftNavLink anchors (Win11 hotpatch)"
-
-    foreach ($anchor in $anchors) {
-        $attrs      = $anchor.Groups[1].Value
-        $text       = $anchor.Groups[2].Value.Trim()
-        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs -BaseUri $BaseUri
-
-        # --- Check for any hotpatch section header (Win11 or Server) ---
-        if ([regex]::IsMatch($text, $anySectionHeaderPattern)) {
-            $win11Match = [regex]::Match($text, $win11HeaderPattern)
-            if ($win11Match.Success) {
-                $currentVersion = $win11Match.Groups[1].Value.ToUpper()
-                Write-Verbose "Hotpatch version section: $currentVersion"
-            }
-            else {
-                # Windows Server or other non-Windows-11 section
-                $currentVersion = $null
-                Write-Verbose "Non-Windows-11 hotpatch section encountered; skipping entries"
-            }
-            continue
+    $sectionResolver = {
+        param($text)
+        if (-not [regex]::IsMatch($text, '(?i)Hotpatch on Windows')) {
+            return $null
         }
-
-        # --- Check for hotpatch update entry ---
-        $entryMatch = [regex]::Match($text, $hotpatchEntryPattern)
-        if (-not $entryMatch.Success) { continue }
-        if ($null -eq $currentVersion)  { continue }
-
-        # Apply version filter if requested
-        if ($WindowsVersion -and $currentVersion -ne $WindowsVersion.ToUpper()) { continue }
-
-        $releaseType = if ($entryMatch.Groups['reltype'].Success -and $entryMatch.Groups['reltype'].Value.Trim()) {
-            'Hotpatch-OOB'
+        $m = [regex]::Match($text, '(?i)Hotpatch on Windows\s+11\s+Enterprise[,\s]+version\s+(\w+)')
+        if ($m.Success) {
+            return @{ Version = $m.Groups[1].Value.ToUpper(); MajorVersion = 11 }
         }
-        else {
-            'Hotpatch'
-        }
-
-        $isExpired = $entryMatch.Groups['expired'].Success
-
-        # Deduplicate
-        $dedupeKey = "$currentVersion|$($entryMatch.Groups['kb'].Value)"
-        if (-not $seen.Add($dedupeKey)) { continue }
-
-        # Parse individual build numbers (entries can carry 1-3 simultaneous builds)
-        $buildStr = $entryMatch.Groups['allbuilds'].Value
-        $osBuilds = ($buildStr -split '(?:,\s*(?:and\s+)?|\s+and\s+)') |
-                    ForEach-Object { $_.Trim() } |
-                    Where-Object   { $_ -match '^\d' }
-
-        # Filter to only the build belonging to this version section
-        if ($VersionBuildMap -and $VersionBuildMap.ContainsKey($currentVersion)) {
-            $expectedBase = $VersionBuildMap[$currentVersion]
-            $matched = @($osBuilds | Where-Object { ($_ -split '\.')[0] -eq $expectedBase })
-            if ($matched.Count -gt 0) {
-                foreach ($b in $osBuilds) {
-                    if (($b -split '\.')[0] -ne $expectedBase) {
-                        Write-Verbose "Filtered build $b from $($entryMatch.Groups['kb'].Value) in section $currentVersion (expected base $expectedBase)"
-                    }
-                }
-                $osBuilds = $matched
-            }
-            else {
-                Write-Verbose "No builds in $($entryMatch.Groups['kb'].Value) matched base $expectedBase for $currentVersion; keeping all builds"
-            }
-        }
-
-        $releaseDate = [DateTime]::ParseExact(
-            $entryMatch.Groups['date'].Value.Trim(),
-            'MMMM d, yyyy',
-            [System.Globalization.CultureInfo]::InvariantCulture
-        ).ToString('yyyy-MM-dd')
-
-        foreach ($build in $osBuilds) {
-            $results.Add([PSCustomObject]@{
-                OSType         = 'Client'
-                MajorVersion   = 11
-                WindowsVersion = $currentVersion
-                KBNumber       = $entryMatch.Groups['kb'].Value
-                OSBuild        = $build
-                FullVersion    = "10.0.$build"
-                ReleaseDate    = $releaseDate
-                ReleaseType    = $releaseType
-                IsExpired      = $isExpired
-                ArticleUrl     = $articleUrl
-            })
-        }
+        # Windows Server or other non-Windows-11 hotpatch section: clear context
+        return @{ Version = $null; MajorVersion = $null }
     }
 
-    return $results
+    return ConvertTo-WindowsUpdateEntriesCore -Html $Html -BaseUri $BaseUri `
+        -SectionResolver $sectionResolver -OSType 'Client' `
+        -EntryPrefixPattern 'Hotpatch\s+' `
+        -ReleaseTypeAlternatives @('Out-of-band') `
+        -DefaultReleaseType 'Hotpatch' `
+        -ReleaseTypeMap @{ 'out-of-band' = 'Hotpatch-OOB' } `
+        -WindowsVersion $WindowsVersion -VersionBuildMap $VersionBuildMap -Label 'Win11 hotpatch'
 }

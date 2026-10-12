@@ -22,7 +22,8 @@ if ($env:DFN_BOT_INFO) { $script:DefaultHeaders['X-Bot-Info'] = $env:DFN_BOT_INF
 # Dot-source private helpers (must load before public functions)
 # ---------------------------------------------------------------------------
 
-Get-ChildItem -Path "$PSScriptRoot\Private\*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+# Recursive: the documented layout allows Private subfolders (e.g. Private\WindowsServer\).
+Get-ChildItem -Path "$PSScriptRoot\Private" -Filter '*.ps1' -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
     . $_.FullName
 }
 

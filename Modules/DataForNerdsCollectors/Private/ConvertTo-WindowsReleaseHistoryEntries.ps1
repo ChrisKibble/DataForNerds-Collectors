@@ -21,12 +21,15 @@ function ConvertTo-WindowsReleaseHistoryEntries {
     #   "Version 1507 (RTM) (OS build 10240)"     - original release, parenthesized RTM marker (Win10)
     # An optional parenthesized annotation (e.g. "(RTM)") may appear between the version
     # and the "(OS build ...)" segment; it is skipped over without altering the captured version.
-    $pattern = '(?i)Version\s+(?<version>\d{4}|\d{2}H\d)(?:\s+\([^)]+\))?\s*\(OS\s+build\s+(?<build>\d{5})'
+    # Build bounded at 5-6 digits: a future 6-digit base build must not be
+    # silently truncated to its first five digits.
+    $pattern = '(?i)Version\s+(?<version>\d{4}|\d{2}H\d)(?:\s+\([^)]+\))?\s*\(OS\s+build\s+(?<build>\d{5,6})\b'
 
-    $seen = [System.Collections.Generic.HashSet[string]]::new()
+    # Case-insensitive to match the (?i) pattern — the page could lowercase "22h2".
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     foreach ($match in [regex]::Matches($Html, $pattern)) {
-        $version = $match.Groups['version'].Value
+        $version = $match.Groups['version'].Value.ToUpper()
 
         if (-not $seen.Add($version)) { continue }
 

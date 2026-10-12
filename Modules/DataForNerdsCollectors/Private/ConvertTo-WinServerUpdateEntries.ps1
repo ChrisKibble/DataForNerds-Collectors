@@ -4,11 +4,11 @@ function ConvertTo-WinServerUpdateEntries {
         Parses Windows Server update entries from the server update history page.
 
     .DESCRIPTION
-        Walks the learnRenderLeftNavLink anchors and produces update objects for all server
+        Thin wrapper over ConvertTo-WindowsUpdateEntriesCore. Handles all server
         versions on the page (Windows Server 2022, Windows Server version 23H2,
-        Windows Server 2025). Sets OSType to 'Server' and derives MajorVersion from
-        the product year (2022 or 2025). The Annual Channel release
-        "Windows Server, version 23H2" is treated as MajorVersion 2022.
+        Windows Server 2025): OSType is 'Server' and MajorVersion derives from the
+        product year. The Annual Channel release "Windows Server, version 23H2" is
+        treated as MajorVersion 2022.
     #>
     [CmdletBinding()]
     param (
@@ -22,103 +22,22 @@ function ConvertTo-WinServerUpdateEntries {
         [string]$WindowsVersion
     )
 
-    $results        = [System.Collections.Generic.List[PSCustomObject]]::new()
-    $currentVersion = $null
-    $currentMajor   = $null
-    $seen           = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-    $anchorPattern = '<a\s([^>]*class="learnRenderLeftNavLink"[^>]*)>([^<]+)</a>'
-    $anchors       = [regex]::Matches($Html, $anchorPattern)
-
-    # "Windows Server, version 23H2" — Annual Channel; treated as Server 2022
-    $serverVersionPattern = '(?i)Windows\s+Server,\s+version\s+(\w+)'
-    # "Windows Server 2022" or "Windows Server 2025"
-    $serverYearPattern    = '(?i)Windows\s+Server\s+(\d{4})\b'
-
-    $updateEntryPattern = (
-        '(?i)' +
-        '(?<date>(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4})' +
-        '\s*(?:&#x2014;|&#8212;|&mdash;|[—–\-]+)\s*' +
-        '(?<kb>KB\d+)' +
-        '\s*\(OS Builds?\s*' +
-        '(?<allbuilds>[^)]+)' +
-        '\)' +
-        '(?:\s*(?<reltype>Preview|Out-of-band))?' +
-        '(?:\s*-?\s*(?<expired>EXPIRED))?'
-    )
-
-    Write-Verbose "Found $($anchors.Count) learnRenderLeftNavLink anchors (WinServer)"
-
-    foreach ($anchor in $anchors) {
-        $attrs      = $anchor.Groups[1].Value
-        $text       = $anchor.Groups[2].Value.Trim()
-        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs -BaseUri $BaseUri
-
+    $sectionResolver = {
+        param($text)
         # "Windows Server, version 23H2" — Annual Channel (Server 2022)
-        $versionMatch = [regex]::Match($text, $serverVersionPattern)
-        if ($versionMatch.Success) {
-            $currentVersion = $versionMatch.Groups[1].Value.ToUpper()
-            $currentMajor   = 2022
-            Write-Verbose "Server version section: $currentVersion (MajorVersion=2022)"
-            continue
+        $m = [regex]::Match($text, '(?i)Windows\s+Server,\s+version\s+(\w+)')
+        if ($m.Success) {
+            return @{ Version = $m.Groups[1].Value.ToUpper(); MajorVersion = 2022 }
         }
-
         # "Windows Server 2022" or "Windows Server 2025"
-        $yearMatch = [regex]::Match($text, $serverYearPattern)
-        if ($yearMatch.Success) {
-            $year           = [int]$yearMatch.Groups[1].Value
-            $currentVersion = $yearMatch.Groups[1].Value
-            $currentMajor   = $year
-            Write-Verbose "Server year section: $currentVersion (MajorVersion=$year)"
-            continue
+        $m = [regex]::Match($text, '(?i)Windows\s+Server\s+(\d{4})\b')
+        if ($m.Success) {
+            return @{ Version = $m.Groups[1].Value; MajorVersion = [int]$m.Groups[1].Value }
         }
-
-        $entryMatch = [regex]::Match($text, $updateEntryPattern)
-        if (-not $entryMatch.Success) { continue }
-        if ($null -eq $currentVersion)  { continue }
-
-        if ($WindowsVersion -and $currentVersion -ne $WindowsVersion.ToUpper()) { continue }
-
-        $rawRelType = if ($entryMatch.Groups['reltype'].Success) { $entryMatch.Groups['reltype'].Value.Trim() } else { '' }
-        $releaseType = switch -Wildcard ($rawRelType.ToLower()) {
-            'preview'      { 'Preview' }
-            'out-of-band'  { 'Out-of-band' }
-            default        { 'Standard' }
-        }
-
-        $isExpired = $entryMatch.Groups['expired'].Success
-
-        $kbNumber  = $entryMatch.Groups['kb'].Value
-        $dedupeKey = "$currentVersion|$kbNumber"
-        if (-not $seen.Add($dedupeKey)) { continue }
-
-        # Parse individual build numbers (entries can carry 1-N simultaneous builds)
-        $buildStr = $entryMatch.Groups['allbuilds'].Value
-        $osBuilds = ($buildStr -split '(?:,\s*(?:and\s+)?|\s+and\s+)') |
-                    ForEach-Object { $_.Trim() } |
-                    Where-Object   { $_ -match '^\d' }
-
-        $releaseDate = [DateTime]::ParseExact(
-            $entryMatch.Groups['date'].Value.Trim(),
-            'MMMM d, yyyy',
-            [System.Globalization.CultureInfo]::InvariantCulture
-        ).ToString('yyyy-MM-dd')
-
-        foreach ($build in $osBuilds) {
-            $results.Add([PSCustomObject]@{
-                OSType         = 'Server'
-                MajorVersion   = $currentMajor
-                WindowsVersion = $currentVersion
-                KBNumber       = $kbNumber
-                OSBuild        = $build
-                FullVersion    = "10.0.$build"
-                ReleaseDate    = $releaseDate
-                ReleaseType    = $releaseType
-                IsExpired      = $isExpired
-                ArticleUrl     = $articleUrl
-            })
-        }
+        return $null
     }
 
-    return $results
+    return ConvertTo-WindowsUpdateEntriesCore -Html $Html -BaseUri $BaseUri `
+        -SectionResolver $sectionResolver -OSType 'Server' `
+        -WindowsVersion $WindowsVersion -Label 'WinServer'
 }

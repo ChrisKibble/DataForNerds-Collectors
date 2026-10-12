@@ -72,6 +72,10 @@ jobs:
         env:
           DFN_BOT_NAME: ${{ secrets.DFN_BOT_NAME }}
           DFN_BOT_INFO: ${{ secrets.DFN_BOT_INFO }}
+          # Make source-fetch failures throw inside the module (instead of
+          # degrading to partial data with a warning) so the retry loop and
+          # record-count validation see them.
+          DFN_STRICT_FETCH: 'true'
           COLLECTOR: ${{ inputs.collector }}
         run: |
           $ErrorActionPreference = 'Stop'
