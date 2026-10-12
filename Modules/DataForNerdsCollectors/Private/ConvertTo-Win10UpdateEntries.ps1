@@ -13,6 +13,9 @@ function ConvertTo-Win10UpdateEntries {
         [Parameter(Mandatory)]
         [string]$Html,
 
+        [Parameter(Mandatory)]
+        [string]$BaseUri,
+
         [Parameter()]
         [string]$WindowsVersion,
 
@@ -48,7 +51,7 @@ function ConvertTo-Win10UpdateEntries {
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value
         $text       = $anchor.Groups[2].Value.Trim()
-        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs
+        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs -BaseUri $BaseUri
 
         # --- Detect initial-version (RTM) header first ---
         if ([regex]::IsMatch($text, $initialVersionPattern)) {

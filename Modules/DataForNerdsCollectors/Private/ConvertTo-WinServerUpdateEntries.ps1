@@ -15,6 +15,9 @@ function ConvertTo-WinServerUpdateEntries {
         [Parameter(Mandatory)]
         [string]$Html,
 
+        [Parameter(Mandatory)]
+        [string]$BaseUri,
+
         [Parameter()]
         [string]$WindowsVersion
     )
@@ -49,7 +52,7 @@ function ConvertTo-WinServerUpdateEntries {
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value
         $text       = $anchor.Groups[2].Value.Trim()
-        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs
+        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs -BaseUri $BaseUri
 
         # "Windows Server, version 23H2" — Annual Channel (Server 2022)
         $versionMatch = [regex]::Match($text, $serverVersionPattern)

@@ -12,6 +12,9 @@ function ConvertTo-Win11UpdateEntries {
         [Parameter(Mandatory)]
         [string]$Html,
 
+        [Parameter(Mandatory)]
+        [string]$BaseUri,
+
         [Parameter()]
         [string]$WindowsVersion,
 
@@ -44,7 +47,7 @@ function ConvertTo-Win11UpdateEntries {
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value
         $text       = $anchor.Groups[2].Value.Trim()
-        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs
+        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs -BaseUri $BaseUri
 
         # --- Check for version section header ---
         $versionMatch = [regex]::Match($text, $versionHeaderPattern)

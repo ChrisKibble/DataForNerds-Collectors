@@ -115,8 +115,11 @@ function Get-WindowsUpdateHistory {
         Write-Verbose "Fetching Windows 10 update history"
         $win10Response = Invoke-ModuleWebRequest -Uri $Win10UpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($win10Response) {
+            $win10BaseUri = $win10Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+            Write-Verbose "Windows 10 page landed on: $win10BaseUri"
             Write-Verbose "Windows 10 page size: $($win10Response.Content.Length) bytes"
             $win10Results = ConvertTo-Win10UpdateEntries -Html $win10Response.Content `
+                                                        -BaseUri $win10BaseUri `
                                                         -WindowsVersion $WindowsVersion `
                                                         -VersionBuildMap $win10BuildMap
             foreach ($result in $win10Results) {
@@ -130,9 +133,11 @@ function Get-WindowsUpdateHistory {
         Write-Verbose "Fetching Windows 11 update history"
         $win11Response = Invoke-ModuleWebRequest -Uri $Win11UpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($win11Response) {
-            Write-Verbose "Windows 11 page landed on: $($win11Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri)"
+            $win11BaseUri = $win11Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+            Write-Verbose "Windows 11 page landed on: $win11BaseUri"
             Write-Verbose "Windows 11 page size: $($win11Response.Content.Length) bytes"
             $win11Results = ConvertTo-Win11UpdateEntries -Html $win11Response.Content `
+                                                        -BaseUri $win11BaseUri `
                                                         -WindowsVersion $WindowsVersion `
                                                         -VersionBuildMap $win11BuildMap
             foreach ($result in $win11Results) {
@@ -143,8 +148,11 @@ function Get-WindowsUpdateHistory {
             Write-Verbose "Fetching Windows 11 hotpatch history"
             $hotpatchResponse = Invoke-ModuleWebRequest -Uri $Win11HotpatchHistoryUrl -ErrorAction SilentlyContinue
             if ($hotpatchResponse) {
+                $hotpatchBaseUri = $hotpatchResponse.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+                Write-Verbose "Hotpatch page landed on: $hotpatchBaseUri"
                 Write-Verbose "Hotpatch page size: $($hotpatchResponse.Content.Length) bytes"
                 $hotpatchResults = ConvertTo-Win11HotpatchEntries -Html $hotpatchResponse.Content `
+                                                                  -BaseUri $hotpatchBaseUri `
                                                                   -WindowsVersion $WindowsVersion `
                                                                   -VersionBuildMap $win11BuildMap
                 foreach ($result in $hotpatchResults) {
@@ -161,8 +169,11 @@ function Get-WindowsUpdateHistory {
         Write-Verbose "Fetching Windows Server update history"
         $serverResponse = Invoke-ModuleWebRequest -Uri $WinServerUpdateHistoryUrl -ErrorAction SilentlyContinue
         if ($serverResponse) {
+            $serverBaseUri = $serverResponse.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+            Write-Verbose "Windows Server page landed on: $serverBaseUri"
             Write-Verbose "Windows Server page size: $($serverResponse.Content.Length) bytes"
             $serverResults = ConvertTo-WinServerUpdateEntries -Html $serverResponse.Content `
+                                                              -BaseUri $serverBaseUri `
                                                               -WindowsVersion $WindowsVersion
             foreach ($result in $serverResults) {
                 if ($result.MajorVersion -in $serverVersionsRequested) {

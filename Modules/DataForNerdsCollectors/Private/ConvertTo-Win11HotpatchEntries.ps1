@@ -12,6 +12,9 @@ function ConvertTo-Win11HotpatchEntries {
         [Parameter(Mandatory)]
         [string]$Html,
 
+        [Parameter(Mandatory)]
+        [string]$BaseUri,
+
         [Parameter()]
         [string]$WindowsVersion,
 
@@ -46,7 +49,7 @@ function ConvertTo-Win11HotpatchEntries {
     foreach ($anchor in $anchors) {
         $attrs      = $anchor.Groups[1].Value
         $text       = $anchor.Groups[2].Value.Trim()
-        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs
+        $articleUrl = Resolve-ArticleUrl -TagAttributes $attrs -BaseUri $BaseUri
 
         # --- Check for any hotpatch section header (Win11 or Server) ---
         if ([regex]::IsMatch($text, $anySectionHeaderPattern)) {
