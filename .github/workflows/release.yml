@@ -1,21 +1,32 @@
 name: Release
 
 on:
+  # Human edits to the manifest (the GITHUB_TOKEN bot push from Version Bump
+  # never fires push-triggered workflows, so that path arrives via workflow_run).
   push:
     branches: [main]
     paths:
       - 'Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+  workflow_run:
+    workflows: ["Version Bump"]
+    types: [completed]
 
 jobs:
   create-release:
     name: Create GitHub release
     runs-on: ubuntu-latest
+    # For workflow_run, only release after a successful bump.
+    if: github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # workflow_run checks out the default branch; pin to main's tip so the
+          # version read below is the one the bump just pushed.
+          ref: main
 
       - name: Extract version from manifest
         id: version
@@ -34,7 +45,9 @@ jobs:
       - name: Check if tag already exists
         id: check-tag
         run: |
-          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          # Check the remote: the shallow checkout has no tags, so a local
+          # rev-parse would always report "missing".
+          if git ls-remote --exit-code --tags origin "refs/tags/v${{ steps.version.outputs.version }}" >/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"

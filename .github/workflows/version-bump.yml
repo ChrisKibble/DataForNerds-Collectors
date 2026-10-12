@@ -6,6 +6,8 @@ on:
     paths:
       - 'Modules/DataForNerdsCollectors/**'
       - '!Modules/DataForNerdsCollectors/DataForNerdsCollectors.psd1'
+  # Manual patch bump (also releases, via the Release workflow's workflow_run trigger).
+  workflow_dispatch:
 
 # Serialize bump jobs: two quick merges to main would otherwise race each
 # other's push and lose a bump in a non-fast-forward failure.
