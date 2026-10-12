@@ -5,7 +5,7 @@ function ConvertTo-Win11UpdateEntries {
 
     .DESCRIPTION
         Walks the learnRenderLeftNavLink anchors and produces update objects. Handles version
-        filtering and 1-2 simultaneous OS builds per entry.
+        filtering and 1-3 simultaneous OS builds per entry.
     #>
     [CmdletBinding()]
     param (
@@ -33,8 +33,7 @@ function ConvertTo-Win11UpdateEntries {
         '\s*(?:&#x2014;|&#8212;|&mdash;|[—–\-]+)\s*' +
         '(?<kb>KB\d+)' +
         '\s*\(OS Builds?\s*' +
-        '(?<build1>[\d.]+)' +
-        '(?:\s+and\s+(?<build2>[\d.]+))?' +
+        '(?<allbuilds>[^)]+)' +
         '\)' +
         '(?:\s*(?<reltype>Preview|Out-of-band))?' +
         '(?:\s*-?\s*(?<expired>EXPIRED))?'
@@ -76,26 +75,22 @@ function ConvertTo-Win11UpdateEntries {
         $dedupeKey = "$currentVersion|$($entryMatch.Groups['kb'].Value)"
         if (-not $seen.Add($dedupeKey)) { continue }
 
-        # Build the OS build array (one or two entries)
-        $osBuilds = [System.Collections.Generic.List[string]]::new()
-        $osBuilds.Add($entryMatch.Groups['build1'].Value)
-        if ($entryMatch.Groups['build2'].Success -and $entryMatch.Groups['build2'].Value.Trim()) {
-            $osBuilds.Add($entryMatch.Groups['build2'].Value.Trim())
-        }
+        # Parse individual build numbers (entries can carry 1-3 simultaneous builds)
+        $buildStr = $entryMatch.Groups['allbuilds'].Value
+        $osBuilds = ($buildStr -split '(?:,\s*(?:and\s+)?|\s+and\s+)') |
+                    ForEach-Object { $_.Trim() } |
+                    Where-Object   { $_ -match '^\d' }
 
         # Filter to only the build belonging to this version section
         if ($VersionBuildMap -and $VersionBuildMap.ContainsKey($currentVersion)) {
             $expectedBase = $VersionBuildMap[$currentVersion]
-            $matched = [System.Collections.Generic.List[string]]::new()
-            foreach ($b in $osBuilds) {
-                if (($b -split '\.')[0] -eq $expectedBase) {
-                    $matched.Add($b)
-                }
-                else {
-                    Write-Verbose "Filtered build $b from $($entryMatch.Groups['kb'].Value) in section $currentVersion (expected base $expectedBase)"
-                }
-            }
+            $matched = @($osBuilds | Where-Object { ($_ -split '\.')[0] -eq $expectedBase })
             if ($matched.Count -gt 0) {
+                foreach ($b in $osBuilds) {
+                    if (($b -split '\.')[0] -ne $expectedBase) {
+                        Write-Verbose "Filtered build $b from $($entryMatch.Groups['kb'].Value) in section $currentVersion (expected base $expectedBase)"
+                    }
+                }
                 $osBuilds = $matched
             }
             else {

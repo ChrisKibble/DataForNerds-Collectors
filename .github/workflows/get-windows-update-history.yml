@@ -104,7 +104,7 @@ jobs:
           New-Envelope 'windows-update-history' @(
               'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d',
               'https://aka.ms/Windows11UpdateHistory',
-              'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf',
+              'https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2',
               'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
           ) $results $lmAll $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-all.json" -Encoding utf8
 
@@ -120,7 +120,7 @@ jobs:
           Write-Host "windows-11-update-history      lastModified: $lmWin11"
           New-Envelope 'windows-11-update-history' @(
               'https://aka.ms/Windows11UpdateHistory',
-              'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
+              'https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2'
           ) $win11 $lmWin11 $now | ConvertTo-Json -Depth 10 | Set-Content -Path "$ws/output-win11.json" -Encoding utf8
 
           # Windows Server only

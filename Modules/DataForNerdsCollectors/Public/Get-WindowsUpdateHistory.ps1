@@ -65,7 +65,7 @@ function Get-WindowsUpdateHistory {
     # Source URLs
     $Win10UpdateHistoryUrl      = 'https://support.microsoft.com/en-us/topic/windows-10-update-history-e6058e7c-4116-38f1-b984-4fcacfba5e5d'
     $Win11UpdateHistoryUrl      = 'https://aka.ms/Windows11UpdateHistory'
-    $Win11HotpatchHistoryUrl    = 'https://support.microsoft.com/en-us/topic/release-notes-for-hotpatch-on-windows-11-enterprise-version-25h2-0bbaa1c7-5070-41ca-a7c9-4ead79602dbf'
+    $Win11HotpatchHistoryUrl    = 'https://support.microsoft.com/en-us/servicing/os/hotpatch/windows-11/2026/release-notes-for-hotpatch-updates-on-windows-11-enterprise-version-26h2'
     $WinServerUpdateHistoryUrl  = 'https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee'
     $Windows10ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/release-information'
     $Windows11ReleaseHistoryUrl = 'https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information'
